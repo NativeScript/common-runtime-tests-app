@@ -156,4 +156,16 @@ describe("TNS require", function () {
             + ' dependency1 function and main executed';
         expect(TNSGetOutput()).toBe(expected);
     });
+
+    it("can can catch a syntax error in module", function () {
+        require("./SyntaxErrorInModule");
+        var expected = 'main started SyntaxError main ended';
+        expect(TNSGetOutput()).toBe(expected);
+    });
+
+    it("can can catch a runtime error in module", function () {
+        require("./RuntimeErrorInModule");
+        var expected = 'main started ReferenceError main ended';
+        expect(TNSGetOutput()).toBe(expected);
+    });
 });
