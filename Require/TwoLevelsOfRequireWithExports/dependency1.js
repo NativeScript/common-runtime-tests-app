@@ -7,6 +7,8 @@ module2.publicFunction();
 
 exports.publicString = 'dependency1 string';
 exports.publicNumber = 1;
-exports.publicFunction = function() { TNSLog(' dependency1 function'); }
+exports.publicFunction = function () {
+    TNSLog(' dependency1 function');
+};
 
 TNSLog(' and dependency1 executed');

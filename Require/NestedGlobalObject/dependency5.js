@@ -8,5 +8,3 @@ global.next = nextFile;
 TNSLog('(' + global.current + ' -> ' + next + ')');
 
 TNSLog('(' + global.next + ' -> ' + current + ')');
-
-

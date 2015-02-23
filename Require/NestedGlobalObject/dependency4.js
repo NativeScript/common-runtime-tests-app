@@ -14,5 +14,3 @@ global.next = global.current;
 current = currentFile;
 
 TNSLog('(' + global.next + ' -> ' + current + ')');
-
-
