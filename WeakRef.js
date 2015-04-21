@@ -4,18 +4,13 @@ describe("WeakRef", function () {
     });
 
     it("should work", function () {
-        //TODO: jasmine somehow breaks __collect. consider removing the TNSRunScript workaround if the test ever works inside jasmine
-        TNSRunScript(
-            "var obj = { };" +
-            "var weakref = new WeakRef(obj);" +
+        var obj = {};
+        var weakref = new WeakRef(obj);
 
-            "obj = null;" +
-            "__collect();" +
+        obj = null;
+        __collect();
 
-            "TNSLog(weakref.get() === null ? '1' : '0');"
-        );
-
-        expect(TNSGetOutput()).toBe("1");
+        expect(weakref.get()).toBe(null);
     });
 
     it("should throw when constructed with zero parameters", function () {
@@ -25,8 +20,7 @@ describe("WeakRef", function () {
     });
 
     it("should throw when constructed with primitive parameters", function () {
-        for (var primitive of [null, undefined, 0])
-        {
+        for (var primitive of [null, undefined, 0]) {
             expect(function () {
                 new WeakRef(primitive);
             }).toThrow();
