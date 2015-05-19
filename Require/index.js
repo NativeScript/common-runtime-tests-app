@@ -103,6 +103,11 @@ describe("TNS require", function () {
         expect(TNSGetOutput()).toBe("CD11903C-B38B-4D68-BEB6-D72C3FAD906F");
     });
 
+    it("require extensions", function () {
+        require("./RequireExtensions");
+        expect(TNSGetOutput()).toBe("dependency1 loaded");
+    });
+
     it('can require from tns_modules', function () {
         require("./RequireModuleFolder");
         expect(TNSGetOutput()).toBe('main started from module folder main ended');
