@@ -57,6 +57,11 @@ describe("TNS require", function () {
         expect(TNSGetOutput()).toBe(expected);
     });
 
+    it('deletes module cache on error', function () {
+        require("./ModuleErrorCache");
+        expect(TNSGetOutput()).toBe('did throw1no throw');
+    });
+
     it('can export var-s', function () {
         require("./ModuleVariable");
         expect(TNSGetOutput()).toBe('main started just title and main ended');
