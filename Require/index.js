@@ -3,7 +3,7 @@ describe("TNS require", function () {
     beforeEach(TNSClearOutput);
     afterEach(TNSClearOutput);
 
-    it("path with leading slash is treated as absoule from the root of the device", function () {
+    it("path with leading slash is treated as absolute from the root of the device", function () {
         require("./AbsolutePath");
         expect(TNSGetOutput()).toBe("main started and AbsolutePath/dependency started and main executed");
     });
@@ -177,5 +177,10 @@ describe("TNS require", function () {
         require("./RuntimeErrorInModule");
         var expected = 'main started ReferenceError main ended';
         expect(TNSGetOutput()).toBe(expected);
+    });
+
+    it("require relative to home", function () {
+        var fileName = __filename.substring(__approot.length + "/app".length);
+        expect(require("~" + fileName)).toBe(global.require(__filename));
     });
 });
