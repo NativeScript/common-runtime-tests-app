@@ -93,6 +93,11 @@ describe("TNS require", function () {
         expect(TNSGetOutput()).toBe('73DB08A5-8FB2-4648-BD6C-9ECB844A4D8E');
     });
 
+    it("would load package.json if available, and use its 'main' property for js file name without extension", function () {
+        require("./PackageJsonAppWithoutExtension");
+        expect(TNSGetOutput()).toBe('813de57a-232c-49cc-b00f-a70e0f566c52');
+    });
+
     it("would load package.json if available, but if there is no 'main' property, would fallback to index.js", function () {
         require("./PackageJsonAppNoMain");
         expect(TNSGetOutput()).toBe("4262F53F-2320-419E-8B3C-626FFB88EC92");
