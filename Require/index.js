@@ -194,5 +194,8 @@ describe("TNS require", function () {
         var expected = 'file module.js title';
        
         expect(result.title).toBe(expected);
+         
+    it("file ending with commented line", function () {
+       expect(function () { require("./FileEndingWithCommentedLine"); }).not.toThrow();
     });
 });
