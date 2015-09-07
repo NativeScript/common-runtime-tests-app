@@ -185,8 +185,10 @@ describe("TNS require", function () {
     });
 
     it("require relative to home", function () {
-        var fileName = __filename.substring(__approot.length + "/app".length);
-        expect(require("~" + fileName)).toBe(global.require(__filename));
+       var applicationRoot = NSString.stringWithString(__approot);
+       var fileName = __filename.substring(applicationRoot.stringByResolvingSymlinksInPath.length + "/app".length);
+       
+       expect(require("~" + fileName)).toBe(global.require(__filename));
     });
 
     it("require file when there is directory with the same name", function () {
