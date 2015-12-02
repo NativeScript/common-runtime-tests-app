@@ -46,8 +46,8 @@ describe("TNS require", function () {
 
     it('module has id with the name of the file', function () {
         require("./FilenameParameter");
-        var expected = '/app/shared/Require/FilenameParameter/index.js /app/shared/Require/FilenameParameter/dependency1.js /app/shared/Require/FilenameParameter/dependency2.js'
-            + ' /app/shared/Require/FilenameParameter/dependency1.js /app/shared/Require/FilenameParameter/index.js ';
+        var expected = 'app/shared/Require/FilenameParameter/index.js app/shared/Require/FilenameParameter/dependency1.js app/shared/Require/FilenameParameter/dependency2.js'
+            + ' app/shared/Require/FilenameParameter/dependency1.js app/shared/Require/FilenameParameter/index.js ';
         expect(TNSGetOutput()).toBe(expected);
     });
 
@@ -187,18 +187,28 @@ describe("TNS require", function () {
     it("require relative to home", function () {
        var applicationRoot = NSString.stringWithString(__approot);
        var fileName = __filename.substring(applicationRoot.stringByResolvingSymlinksInPath.length + "/app".length);
-       
+
        expect(require("~" + fileName)).toBe(global.require(__filename));
     });
 
     it("require file when there is directory with the same name", function () {
         var result = require("./FileAndDirectoryWithSameName");
         var expected = 'file module.js title';
-       
+
         expect(result.title).toBe(expected);
     });
-    
+
     it("file ending with commented line", function () {
        expect(function () { require("./FileEndingWithCommentedLine"); }).not.toThrow();
+    });
+
+    it("should require JSON files", function () {
+        require('./RequireJsonFile');
+        expect(TNSGetOutput()).toBe('test-value');
+    });
+
+    it("should handle JSON file errors", function () {
+        require('./RequireJsonCorruptFile');
+        expect(TNSGetOutput()).toBe("File: 'file:///app/shared/Require/RequireJsonCorruptFile/test.json'. JSON Parse error: Unterminated string");
     });
 });
