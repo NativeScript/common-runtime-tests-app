@@ -209,6 +209,6 @@ describe("TNS require", function () {
 
     it("should handle JSON file errors", function () {
         require('./RequireJsonCorruptFile');
-        expect(TNSGetOutput()).toBe("File: 'file:///app/shared/Require/RequireJsonCorruptFile/test.json'. JSON Parse error: Unterminated string");
+        expect(TNSGetOutput()).toMatch(/JSON Parse error: Unterminated string$|Unexpected token/)
     });
 });
