@@ -209,6 +209,6 @@ describe("TNS require", function () {
 
     it("should handle JSON file errors", function () {
         require('./RequireJsonCorruptFile');
-        expect(TNSGetOutput()).toBe("There was a corrupt or invalid package.json.");
+        expect(TNSGetOutput()).toMatch(/JSON Parse error: Unterminated string$|Unexpected token/)
     });
 });
