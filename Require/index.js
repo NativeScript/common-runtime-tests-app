@@ -108,14 +108,14 @@ describe("TNS require", function () {
         expect(TNSGetOutput()).toBe("ModuleError");
     });
 
-    it("package.json main property in tns_modules points to a js file in tns_modules", function () {
-        require("./PackageJsonTns");
-        expect(TNSGetOutput()).toBe("CD11903C-B38B-4D68-BEB6-D72C3FAD906F");
-    });
-
     it("require extensions", function () {
         require("./RequireExtensions");
         expect(TNSGetOutput()).toBe("dependency1 loaded");
+    });
+
+    it("package.json main property in tns_modules points to a js file in tns_modules", function () {
+        require("./PackageJsonTns");
+        expect(TNSGetOutput()).toBe("CD11903C-B38B-4D68-BEB6-D72C3FAD906F");
     });
 
     it('can require from tns_modules', function () {
@@ -126,6 +126,18 @@ describe("TNS require", function () {
     it('searches tns_modules before app', function () {
         require("./RequireModuleFolderConflict");
         expect(TNSGetOutput()).toBe('main started from module folder main ended');
+    });
+    
+    it("when require a tns_module that is a directory name it should load the index js inside it", function () {
+        require("shared/Require/RequirePriority/dependency3");
+        var expected = ' from module folder in index file';
+        expect(TNSGetOutput()).toBe(expected);
+    });
+
+    it("when require a tns_module that is a directory name it should load the package json inside it", function () {
+        require("shared/Require/RequirePriority/dependency5");
+        var expected = ' from module folder in dependency5 dir'
+        expect(TNSGetOutput()).toBe(expected);
     });
 
     it('has a priority to load from tns_module first then from app and relative folder', function () {
@@ -208,5 +220,47 @@ describe("TNS require", function () {
     it("should handle JSON file errors", function () {
         require('./RequireJsonCorruptFile');
         expect(TNSGetOutput()).toMatch(/JSON Parse error: Unterminated string$|Unexpected token/)
+    });
+
+    it("shouldn't load invalid JSON file", function () {
+        require("./RequireJsonCorruptFile1");
+        expect(TNSGetOutput()).toMatch(/JSON Parse error: Unable to parse JSON string$|Unexpected token/)
+    });
+
+    it("when using global in a module global should be defined", function () {
+        var module = require("./GlobalIsDefined/module");
+        module.accessGlobalObject();
+        expect(TNSGetOutput()).not.toBe(undefined);
+    });
+
+    it("when require a module via app root syntax it should be loaded", function () {
+        var mymodule = require("~/shared/Require/RequireWithTildeSyntax/module.js");
+        var value = mymodule.echo(12345)
+        expect(value).toBe(12345);
+    });
+
+    it("should load module with null char in it", function () {
+        var text = require("./ModuleWithNullChar/index").text;
+        var s = "Hello world";
+        expect(text.length).toBe(s.length);
+    });
+
+    it("should have module.require exported function", function () {
+        expect(typeof module.require).toBe("function");
+    });
+
+    it("should load module through module.require exported function", function () {
+        var module1 = require("./ModuleRequireFunction/module1");
+        expect(module1.msg).toBe("module1");
+        
+        var module2 = module1.module.require("./module2");
+        expect(module2.msg).toBe("module2");
+    });
+
+    it("should load module through global.require", function () {
+        expect(typeof global.require).toBe("function");
+        
+        var module3 = global.require("./shared/Require/GlobalRequire/index");
+        expect(module3.msg).toBe("module3");
     });
 });
