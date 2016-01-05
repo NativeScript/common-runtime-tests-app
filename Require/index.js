@@ -45,10 +45,8 @@ describe("TNS require", function () {
     });
 
     it('module has id with the name of the file', function () {
-        require("./FilenameParameter");
-        var expected = 'app/shared/Require/FilenameParameter/index.js app/shared/Require/FilenameParameter/dependency1.js app/shared/Require/FilenameParameter/dependency2.js'
-            + ' app/shared/Require/FilenameParameter/dependency1.js app/shared/Require/FilenameParameter/index.js ';
-        expect(TNSGetOutput()).toBe(expected);
+        expect(module.id).toBe(__filename);
+        expect(module.id).toMatch(/\/.*\/app\/shared\/Require\/index.js$/);
     });
 
     it('modules can require further modules', function () {
