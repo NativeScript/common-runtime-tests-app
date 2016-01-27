@@ -263,4 +263,14 @@ describe("TNS require", function () {
         var module3 = global.require("./shared/Require/GlobalRequire/index");
         expect(module3.msg).toBe("module3");
     });
+
+    it('Case Sensitive', function () {
+        require("./CaseSensitive");
+        expect(TNSGetOutput()).toBe('file');
+    });
+
+    it('File with dots', function () {
+        require("./FileWithDots");
+        expect(TNSGetOutput()).toBe('file.name');
+    });
 });
