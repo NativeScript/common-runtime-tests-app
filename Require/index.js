@@ -268,4 +268,9 @@ describe("TNS require", function () {
         require("./CaseSensitive");
         expect(TNSGetOutput()).toBe('file');
     });
+
+    it('File with dots', function () {
+        require("./FileWithDots");
+        expect(TNSGetOutput()).toBe('file.name');
+    });
 });
