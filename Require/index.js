@@ -266,7 +266,9 @@ describe("TNS require", function () {
 
     it('Case Sensitive', function () {
         require("./CaseSensitive");
-        expect(TNSGetOutput()).toBe('file');
+        // WARNING: The following test is platform specific
+        var expected = global.android ? 'filefolder' : 'file';
+        expect(TNSGetOutput()).toBe(expected);
     });
 
     it('File with dots', function () {
