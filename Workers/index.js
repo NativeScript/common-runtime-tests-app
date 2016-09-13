@@ -271,6 +271,42 @@ describe("TNS Workers", function () {
     });
 
     describe("Workers Error Handling", function () {
+        it("Test onerror invoked for a script that has invalid syntax", function (done) {
+            var worker = new Worker("./WorkerInvalidSyntax.js");
 
+            worker.onerror = function (err) {
+                done();
+                worker.terminate();
+                return true;
+            };
+        });
+
+        it("Test onerror invoked on worker scope and propagate to main's onerror when returning false", function (done) {
+            var worker = new Worker("./WorkerWithOnError.js");
+
+            worker.postMessage("with onerror returning false");
+
+            worker.onerror = function (err) {
+                done();
+                worker.terminate();
+                return true;
+            }
+        });
+
+        it("Test onerror invoked on worker scope and do not propagate to main's onerror when returning true", function (done) {
+            var worker = new Worker("./WorkerWithOnError.js");
+
+            worker.postMessage("with onerror returning true");
+
+            worker.onerror = function (err) {
+                worker.terminate();
+                return true;
+            }
+
+            worker.onmessage = function (msg) {
+                done();
+                worker.terminate();
+            }
+        });
     });
 });
