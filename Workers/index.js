@@ -1,4 +1,15 @@
 describe("TNS Workers", function () {
+    var originalTimeout;
+
+    beforeEach(function () {
+        originalTimeout = jasmine.DEFAULT_TIMEOUT_INTERVAL;
+        jasmine.DEFAULT_TIMEOUT_INTERVAL = 3000;
+    });
+
+    afterEach(function () {
+        jasmine.DEFAULT_TIMEOUT_INTERVAL = originalTimeout;
+    });
+
     describe("Worker Object Initialization", function () {
         it("Should throw exception when no parameter is passed", function () {
             var exceptionThrown = false;
@@ -28,7 +39,7 @@ describe("TNS Workers", function () {
             var exceptionThrown = false;
 
             try {
-                new Worker({ filename: "./myFile.js" });
+                new Worker({ filename: "./WorkerCommon.js" });
             } catch (e) {
                 exceptionThrown = true;
             }
@@ -64,7 +75,7 @@ describe("TNS Workers", function () {
             exceptionThrown = false;
 
             try {
-                Worker("./myFile.js");
+                Worker("./WorkerCommon.js");
             } catch (e) {
                 exceptionThrown = true;
             }
@@ -124,6 +135,7 @@ describe("TNS Workers", function () {
             a.onmessage = function (msg) {
                 expect(msg).toBe(inputMessage + worker1Sig);
                 done();
+                a.terminate();
             }
         });
 
@@ -140,9 +152,8 @@ describe("TNS Workers", function () {
             a.onmessage = function (msg) {
                 expect(msg).toBe(inputMessage + worker1Sig);
                 done();
+                a.terminate();
             }
-
-            a.terminate();
         });
 
         function generateRandomString(strLen) {
@@ -188,21 +199,17 @@ describe("TNS Workers", function () {
             expect(exceptionThrown).toBe(false);
         });
 
-        it("Terminate worker prematurely while it has queued messages", function () {
-            var exceptionThrown = false;
-            try {
-                var worker = new Worker("./WorkerCommon.js");
+        it("Terminate worker prematurely while it has queued messages", function (done) {
+            var worker = new Worker("./WorkerCommon.js");
 
+            setTimeout(function () {
                 for (var i = 0; i < 1000; i++) {
                     worker.postMessage("NS stands for NativeScript");
                 }
 
                 worker.terminate();
-            } catch (e) {
-                exceptionThrown = true;
-            }
-
-            expect(exceptionThrown).toBe(false);
+                done();
+            }, 1000); // provide enough time for the worker to initialize before spamming it
         });
     });
 
