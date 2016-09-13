@@ -3,7 +3,7 @@ describe("TNS Workers", function () {
 
     beforeEach(function () {
         originalTimeout = jasmine.DEFAULT_TIMEOUT_INTERVAL;
-        jasmine.DEFAULT_TIMEOUT_INTERVAL = 3000;
+        jasmine.DEFAULT_TIMEOUT_INTERVAL = 3500;
     });
 
     afterEach(function () {
@@ -211,10 +211,63 @@ describe("TNS Workers", function () {
                 done();
             }, 1000); // provide enough time for the worker to initialize before spamming it
         });
+
+        it("Should not throw or crash when executing too much JS inside Worker", function (done) {
+            var exceptionThrown = false;
+
+            var worker = new Worker("./WorkerStressJSTest.js");
+
+            // the specific worker will post a message if something isn't right
+            worker.onmessage = function (msg) {
+                exceptionThrown = true;
+            }
+
+            setTimeout(function () {
+                worker.terminate();
+
+                expect(exceptionThrown).toBe(false);
+                done();
+            }, 1000);
+        });
     });
 
     describe("Worker Scope Closing", function () {
+        it("Test worker should close and not postMessage after close() call", function (done) {
+            var messageReceived = false;
 
+            var worker = new Worker("./WorkerClose.js");
+
+            worker.postMessage("close");
+
+            worker.onmessage = function (msg) {
+                messageReceived = true;
+            }
+
+            setTimeout(function () {
+                expect(messageReceived).toBe(false);
+                done();
+            }, 1000);
+        });
+
+        it("Test worker should close and not receive messages after close() call", function (done) {
+            var messageReceived = false;
+
+            var worker = new Worker("./WorkerClose.js");
+
+            worker.postMessage("close");
+            worker.postMessage("ping");
+
+            worker.onmessage = function (msg) {
+                if (msg == "pong") {
+                    messageReceived = true;
+                }
+            }
+
+            setTimeout(function () {
+                expect(messageReceived).toBe(false);
+                done();
+            }, 1000);
+        });
     });
 
     describe("Workers Error Handling", function () {
