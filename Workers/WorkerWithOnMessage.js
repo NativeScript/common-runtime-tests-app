@@ -1,4 +1,8 @@
 var signatureString = "WorkerWithOnMessage-gg";
 onmessage = function(msg) {
-    postMessage(msg + signatureString);
+    if(typeof(msg) == "object") {
+        postMessage(msg);
+    } else {
+        postMessage(msg + signatureString);
+    }
 }

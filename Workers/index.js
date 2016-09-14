@@ -3,7 +3,7 @@ describe("TNS Workers", function () {
 
     beforeEach(function () {
         originalTimeout = jasmine.DEFAULT_TIMEOUT_INTERVAL;
-        jasmine.DEFAULT_TIMEOUT_INTERVAL = 3500;
+        jasmine.DEFAULT_TIMEOUT_INTERVAL = 4000;
     });
 
     afterEach(function () {
@@ -86,23 +86,12 @@ describe("TNS Workers", function () {
 
     describe("Workers Messaging", function () {
         it("Should throw exception when Worker.postMessage is called with invalid arguments", function () {
-            __log("Should throw exception when Worker.postMessage is called with invalid arguments");
             var exceptionThrown = false;
 
             var a = new Worker("./WorkerWithOnMessage.js");
 
             try {
                 a.postMessage();
-            } catch (e) {
-                exceptionThrown = true;
-            }
-
-            expect(exceptionThrown).toBe(true);
-
-            exceptionThrown = false;
-
-            try {
-                a.postMessage({ data: "message" });
             } catch (e) {
                 exceptionThrown = true;
             }
@@ -123,7 +112,6 @@ describe("TNS Workers", function () {
         });
 
         it("Send a message from worker -> worker scope and receive back the same message", function (done) {
-            __log("Send a message from worker -> worker scope and receive back the same message");
             var a = new Worker("./WorkerWithOnMessage.js");
 
             var inputMessage = "This is a very elaborate message that the worker1 will not know of.";
@@ -140,7 +128,6 @@ describe("TNS Workers", function () {
         });
 
         it("Send a LONG message from worker -> worker scope and receive back the same LONG message", function (done) {
-            __log("Send a LONG message from worker -> worker scope and receive back the same LONG message");
             var a = new Worker("./WorkerWithOnMessage.js");
 
             var inputMessage = generateRandomString(1000);
@@ -153,6 +140,46 @@ describe("TNS Workers", function () {
                 expect(msg).toBe(inputMessage + worker1Sig);
                 done();
                 a.terminate();
+            }
+        });
+
+        it("Send an object and receive back the same object", function (done) {
+            var a = new Worker("./WorkerWithOnMessage.js");
+
+            var obj = { data: "A message from main", sig: "WorkerWithOnMessage-gg", arbitraryNumber: 42 };
+            a.postMessage(obj);
+
+            a.onmessage = function (msg) {
+                expect(msg.data).toBe("A message from main");
+                expect(msg.sig).toBe("WorkerWithOnMessage-gg");
+                expect(msg.arbitraryNumber).toBe(42);
+                done();
+                a.terminate();
+            }
+        });
+
+        it("Send many objects from worker Object", function (done) {
+            var a = new Worker("./WorkerWithOnMessage.js");
+
+            var objects = [];
+            for (var i = 0; i < 100; i++) {
+                objects.push({ i: i, data: generateRandomString(100), num: 123456.22 });
+            }
+
+            setTimeout(function () {
+                // if all messages have been sent
+                if (j == 100) {
+                    done();
+                    a.terminate();
+                }
+
+                a.terminate();
+            }, 350);
+
+            var j;
+
+            for (j = 0; j < 100; j++) {
+                a.postMessage(objects[j]);
             }
         });
 
