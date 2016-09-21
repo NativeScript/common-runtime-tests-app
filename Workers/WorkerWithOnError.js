@@ -1,11 +1,10 @@
 onmessage = function(msg) {
     if(msg == "with onerror returning true") {
         attachOnErrorWithTrue();
-        throw "42";
     } else if (msg == "with onerror returning false") {
         attachOnErrorWithFalse();
-        throw "16";
     }
+    throw "42";
 }
 
 function attachOnErrorWithTrue() {
