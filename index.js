@@ -4,4 +4,5 @@ if (global.NSObject) {
 
 require("./Require");
 require("./WeakRef");
-require("./RuntimeTests")
+require("./RuntimeTests");
+require("./Workers");
