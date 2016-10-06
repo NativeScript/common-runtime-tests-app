@@ -10,14 +10,14 @@ describe("TNS Workers", () => {
         jasmine.DEFAULT_TIMEOUT_INTERVAL = originalTimeout;
     });
 
-    var gc = global.NSObject ? __collect : gc;
+    var gC = global.NSObject ? __collect : gc;
 
     describe("Worker Object Initialization", () => {
         it("Should throw exception when no parameter is passed", () => {
             expect(() => new Worker()).toThrow();
         });
 
-        it("Should call worker.onerror when script does not exist", (done) => {
+        xit("Should call worker.onerror when script does not exist", (done) => {
             var worker = new Worker("./idonot-exist.js");
             worker.onerror = (e) => {
                 expect(e).not.toEqual(null);
@@ -33,7 +33,7 @@ describe("TNS Workers", () => {
             // with more complex parameter
             expect(() => {
                 new Worker((() => {
-                    function a() {}
+                    function a() { }
                 })())
             }).toThrow();
         });
@@ -111,19 +111,13 @@ describe("TNS Workers", () => {
         });
 
 
-        it("Send many objects from worker object without waiting for response and without termination", () => {
+        it("Send many objects from worker object without waiting for response and terminate", () => {
             var a = new Worker("./EvalWorker.js");
             for (var i = 0; i < 10000; i++) {
                 a.postMessage({ i: i, data: generateRandomString(100), num: 123456.22 });
             }
-        });
 
-        it("Send many objects from worker object without waiting for response and terminate it at the end", () => {
-            var worker = new Worker("./EvalWorker.js");
-            for (var i = 0; i < 10000; i++) {
-                worker.postMessage("NS stands for NativeScript");
-            }
-            worker.terminate();
+            a.terminate();
         });
 
         it("Should keep the worker alive after error", (done) => {
@@ -131,7 +125,7 @@ describe("TNS Workers", () => {
 
             worker.postMessage({ eval: "throw new Error('just an error');" });
             worker.postMessage({ eval: "postMessage('pong');" });
-            worker.onmessage = function(msg) {
+            worker.onmessage = function (msg) {
                 expect(msg.data).toBe("pong");
                 worker.terminate();
                 done();
@@ -141,7 +135,8 @@ describe("TNS Workers", () => {
         it("If error is thrown in close() should call onerror but should not execute any other tasks ", (done) => {
             var worker = new Worker("./EvalWorker.js");
 
-            worker.postMessage({ eval:
+            worker.postMessage({
+                eval:
                 "onmessage = (msg) => { postMessage(msg.data + ' pong'); };\
                 onerror = (err) => { postMessage('pong'); return false; };\
                 onclose = () => { throw new Error('error thrown from close()'); };\
@@ -217,7 +212,7 @@ describe("TNS Workers", () => {
 
         it("If worker instance is garbage collected, onmessage should not be called", (done) => {
             var onmessageCalled = false;
-            (function(){
+            (function () {
                 var w = new Worker("./EvalWorker.js");
                 w.postMessage({ eval: "postMessage('pong');" });
                 w.onmessage = (msg) => {
@@ -225,7 +220,7 @@ describe("TNS Workers", () => {
                 }
             })();
 
-            gc();
+            gC();
 
             setTimeout(() => {
                 expect(onmessageCalled).toBe(false);
@@ -235,18 +230,6 @@ describe("TNS Workers", () => {
     });
 
     describe("Worker Scope Closing", () => {
-
-        it("Test worker should send message immediately after close()", (done) => {
-            var messageReceived = false;
-            var worker = new Worker("./WorkerClose.js");
-
-            worker.postMessage("close");
-            worker.onmessage = (msg) => {
-                expect(msg.data).toBe("message after close");
-                done();
-            }
-        });
-
         it("Test worker should close and not receive messages after close() call", (done) => {
             var messageReceived = false;
             var worker = new Worker("./EvalWorker.js");
@@ -288,7 +271,7 @@ describe("TNS Workers", () => {
             var worker = new Worker("./EvalWorker.js");
 
             worker.postMessage({
-                eval: 
+                eval:
                 "onerror = function(err) { \
                     return false; \
                 }; \
@@ -302,16 +285,16 @@ describe("TNS Workers", () => {
 
         it("Test onerror invoked on worker scope and do not propagate to main's onerror when returning true", (done) => {
             var worker = new Worker("./EvalWorker.js");
-            
+
             worker.postMessage({
-                eval: 
+                eval:
                 "onerror = function(err) { \
                     postMessage(err); \
                     return true; \
                 }; \
                 throw 42;"
             });
-            
+
             var onErrorCalled = false;
             var onMessageCalled = false;
 
