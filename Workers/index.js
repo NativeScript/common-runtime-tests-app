@@ -12,10 +12,6 @@ describe("TNS Workers", () => {
 
     var gC = global.NSObject ? __collect : gc;
 
-    it("Should have the right prototype name", () => {
-        expect(Worker.prototype.toString()).toBe("[object WorkerPrototype]");
-    });
-
     it("Should have self property equal to global", (done) => {
         var worker = new Worker("./EvalWorker");
 
@@ -180,7 +176,7 @@ describe("TNS Workers", () => {
         worker.postMessage({ eval: "close(); close(); close(); close();" });
     });
 
-    xit("Should not throw error if post message is called with native object", () => {
+    it("Should not throw error if post message is called with native object", () => {
         var worker = new Worker("./EvalWorker.js");
 
         var nativeObj = global.NSObject ? new UIView() : new java.lang.Object();
@@ -204,32 +200,32 @@ describe("TNS Workers", () => {
         }
     });
 
-    var __workers = []; // prevents gc
-    xit("Should create many worker instances witthout throwing error", (done) => {
-        var workersCount = 100;
-        var messagesCount = 100;
-        var allWorkersResponseCounter = 0;
-        
-        for(let id = 0; id < workersCount; id++) {
-            let worker = new Worker("./EvalWorker");
-            __workers.push(worker);
-            let responseCounter = 0;
-            worker.onmessage = (msg) => {
-                responseCounter++;
-                if (responseCounter < messagesCount) {
-                    worker.postMessage({ eval: "postMessage('pong');" });
-                }
-                else {
-                    allWorkersResponseCounter += responseCounter;
-                    worker.terminate();
-                    if (allWorkersResponseCounter == workersCount * messagesCount) {
-                        done();
+    if (global.NSObject) {
+        it("Should create many worker instances without throwing error", (done) => {
+            var workersCount = 100;
+            var messagesCount = 100;
+            var allWorkersResponseCounter = 0;
+            
+            for(let id = 0; id < workersCount; id++) {
+                let worker = new Worker("./EvalWorker");
+                let responseCounter = 0;
+                worker.onmessage = (msg) => {
+                    responseCounter++;
+                    if (responseCounter < messagesCount) {
+                        worker.postMessage({ eval: "postMessage('pong');" });
+                    }
+                    else {
+                        allWorkersResponseCounter += responseCounter;
+                        worker.terminate();
+                        if (allWorkersResponseCounter == workersCount * messagesCount) {
+                            done();
+                        }
                     }
                 }
+                worker.postMessage({ eval: "postMessage('pong');" });
             }
-            worker.postMessage({ eval: "postMessage('pong');" });
-        }
-    });
+        });
+    }
 
     it("Call close in onclose", (done) => {
         var worker = new Worker("./EvalWorker.js");
@@ -314,18 +310,6 @@ describe("TNS Workers", () => {
         }, 1000);
     });
 
-    function generateRandomString(strLen) {
-        var chars = "abcAbc defgDEFG 1234567890 ";
-        var len = chars.length;
-        var str = "";
-
-        for (var i = 0; i < strLen; i++) {
-            str += chars[getRandomInt(0, len - 1)];
-        }
-
-        return str;
-    }
-
     it("Should not throw or crash when executing too much JS inside Worker", (done) => {
         var worker = new Worker("./WorkerStressJSTest.js");
         // the specific worker will post a message if something isn't right
@@ -344,7 +328,7 @@ describe("TNS Workers", () => {
         }, 1000);
     });
 
-    it("If worker instance is garbage collected, onmessage should not be called", (done) => {
+    it("Worker instance should not be garbage collected if the worker thread is alive", (done) => {
         var onmessageCalled = false;
         (function () {
             var w = new Worker("./EvalWorker.js");
@@ -357,7 +341,7 @@ describe("TNS Workers", () => {
         gC();
 
         setTimeout(() => {
-            expect(onmessageCalled).toBe(false);
+            expect(onmessageCalled).toBe(true);
             done();
         }, 1000);
     });
@@ -442,6 +426,18 @@ describe("TNS Workers", () => {
             done();
         }, 1000);
     });
+
+    function generateRandomString(strLen) {
+        var chars = "abcAbc defgDEFG 1234567890 ";
+        var len = chars.length;
+        var str = "";
+
+        for (var i = 0; i < strLen; i++) {
+            str += chars[getRandomInt(0, len - 1)];
+        }
+
+        return str;
+    }
 
     //
     // Returns a random integer between min (inclusive) and max (inclusive)
