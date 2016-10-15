@@ -306,4 +306,9 @@ describe("TNS require", function () {
         var expected = 'main started in FindsPackageJson module main ended';
         expect(TNSGetOutput()).toBe(expected);
     });
+    it('should throw error if cant find node module', function () {
+        require("./node_modules/CantFindNodeModule");
+        var expected = 'main started Module Error main ended';
+        expect(TNSGetOutput()).toBe(expected);
+    });
 });
