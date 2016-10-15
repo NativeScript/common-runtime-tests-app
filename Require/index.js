@@ -275,6 +275,10 @@ describe("TNS require", function () {
         require("./FileWithDots");
         expect(TNSGetOutput()).toBe('file.name');
     });
+    it('should load path from package.json as directory', function () {
+        require("./PackageJsonMainPointsToDir");
+        expect(TNSGetOutput()).toBe(' from subdirectory/index.js');
+    });
 
     // node_modules tests
     it('should traverse correctly through node_modules till outer module is found', function () {
