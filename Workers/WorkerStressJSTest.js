@@ -10,7 +10,7 @@ function stress() {
     }
 }
 
-for (var i = 0; i < 30000; i++) {
+for (var i = 0; i < 10000; i++) {
     try {
         stress();
         eval("stress()");

@@ -3,7 +3,7 @@ describe("TNS Workers", () => {
 
     beforeEach(() => {
         originalTimeout = jasmine.DEFAULT_TIMEOUT_INTERVAL;
-        jasmine.DEFAULT_TIMEOUT_INTERVAL = 4000;
+        jasmine.DEFAULT_TIMEOUT_INTERVAL = 7000; // For slower android emulators
     });
 
     afterEach(() => {
@@ -106,7 +106,7 @@ describe("TNS Workers", () => {
         var a = new Worker("./EvalWorker.js");
 
         var message = {
-            value: generateRandomString(10000),
+            value: generateRandomString(5000),
             eval: "postMessage(value);"
         }
 
@@ -142,7 +142,7 @@ describe("TNS Workers", () => {
 
     it("Send many objects from worker object without waiting for response and terminate", () => {
         var a = new Worker("./EvalWorker.js");
-        for (var i = 0; i < 10000; i++) {
+        for (var i = 0; i < 500; i++) {
             a.postMessage({ i: i, data: generateRandomString(100), num: 123456.22 });
         }
 
