@@ -275,4 +275,40 @@ describe("TNS require", function () {
         require("./FileWithDots");
         expect(TNSGetOutput()).toBe('file.name');
     });
+    it('should load path from package.json as directory', function () {
+        require("./PackageJsonMainPointsToDir");
+        expect(TNSGetOutput()).toBe(' from subdirectory/index.js');
+    });
+
+    // node_modules tests
+    it('should traverse correctly through node_modules till outer module is found', function () {
+        require("./node_modules/FindInOuterNodeModules");
+        var expected = 'main started in FindInOuterNodeModules module main ended';
+        expect(TNSGetOutput()).toBe(expected);
+    });
+    it('should traverse correctly through any folders till outer module is found', function () {
+        require("./node_modules/FindsIndexJs");
+        var expected = 'main started in FindsIndexJs module main ended';
+        expect(TNSGetOutput()).toBe(expected);
+    });
+    it('should traverse correctly through inner node modules first', function () {
+        require("./node_modules/FindsInnerNodeModulesFirst");
+        var expected = 'main started in FindsInnerNodeModulesFirst module main ended';
+        expect(TNSGetOutput()).toBe(expected);
+    });
+    it('should traverse correctly through native modules before traversing node_modules', function () {
+        require("./node_modules/FindsNativeModulesFirst");
+        var expected = 'main started from module folder main ended';
+        expect(TNSGetOutput()).toBe(expected);
+    });
+    it('should traverse node_modules and find package.json if present', function () {
+        require("./node_modules/FindsPackageJson");
+        var expected = 'main started in FindsPackageJson module main ended';
+        expect(TNSGetOutput()).toBe(expected);
+    });
+    it('should throw error if cant find node module', function () {
+        require("./node_modules/CantFindNodeModule");
+        var expected = 'main started Module Error main ended';
+        expect(TNSGetOutput()).toBe(expected);
+    });
 });
