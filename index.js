@@ -1,11 +1,3 @@
-exports.runAllTest = function() {
-    runImportTests();
-    runRequireTests();
-    runWeakRefTests();
-    runRuntimeTests();
-    runWorkerTests();
-}
-
 exports.runImportTests = function() {
     require("./Import");
 }
@@ -24,4 +16,12 @@ exports.runRuntimeTests = function() {
 
 exports.runWorkerTests = function() {
     require("./Workers");
+}
+
+exports.runAllTests = function() {
+    exports.runImportTests();
+    exports.runRequireTests();
+    exports.runWeakRefTests();
+    exports.runRuntimeTests();
+    exports.runWorkerTests();
 }
