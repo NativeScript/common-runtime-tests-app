@@ -1,9 +1,17 @@
 describe("TNS Workers", () => {
     var originalTimeout;
+    var DEFAULT_TIMEOUT_BEFORE_ASSERT = 500;
+
+    if(global.NSObject) { // if platform is iOS
+        DEFAULT_TIMEOUT_BEFORE_ASSERT = 1000;
+    } else { // if Android
+        // necessary in order to accommodate slower and older android emulators
+        DEFAULT_TIMEOUT_BEFORE_ASSERT = 4000;
+    }
 
     beforeEach(() => {
         originalTimeout = jasmine.DEFAULT_TIMEOUT_INTERVAL;
-        jasmine.DEFAULT_TIMEOUT_INTERVAL = 7000; // For slower android emulators
+        jasmine.DEFAULT_TIMEOUT_INTERVAL = 8000; // For slower android emulators
     });
 
     afterEach(() => {
@@ -83,7 +91,7 @@ describe("TNS Workers", () => {
         setTimeout(() => {
             expect(responseCounter).toBe(0);
             done();
-        }, 500);
+        }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
     it("Send a message from worker -> worker scope and receive back the same message", (done) => {
@@ -248,7 +256,7 @@ describe("TNS Workers", () => {
         setTimeout(() => {
             expect(responseCounter).toBe(1);
             done();
-        }, 1000);
+        }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
     it("Throw error in onerror", (done) => {
@@ -277,7 +285,7 @@ describe("TNS Workers", () => {
             expect(onerrorCounter).toBe(2);
             expect(onmessageCounter).toBe(1);
             done();
-        }, 1000);
+        }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
     it("If error is thrown in close() should call onerror but should not execute any other tasks ", (done) => {
@@ -307,7 +315,7 @@ describe("TNS Workers", () => {
             expect(lastReceivedMessage).toBe("pong");
             worker.terminate();
             done();
-        }, 1000);
+        }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
     it("Should not throw or crash when executing too much JS inside Worker", (done) => {
@@ -325,7 +333,7 @@ describe("TNS Workers", () => {
         setTimeout(() => {
             worker.terminate();
             done();
-        }, 1000);
+        }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
     it("Worker instance should not be garbage collected if the worker thread is alive", (done) => {
@@ -343,7 +351,7 @@ describe("TNS Workers", () => {
         setTimeout(() => {
             expect(onmessageCalled).toBe(true);
             done();
-        }, 1000);
+        }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
     it("Test worker should close and not receive messages after close() call", (done) => {
@@ -368,7 +376,7 @@ describe("TNS Workers", () => {
             expect(responseCounter).toBe(1);
             worker.terminate();
             done();
-        }, 1000);
+        }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
     it("Test onerror invoked for a script that has invalid syntax", (done) => {
@@ -424,7 +432,7 @@ describe("TNS Workers", () => {
             expect(onMessageCalled).toBe(true);
             worker.terminate();
             done();
-        }, 1000);
+        }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
     function generateRandomString(strLen) {
