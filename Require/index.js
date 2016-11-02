@@ -217,6 +217,12 @@ describe("TNS require", function () {
         expect(TNSGetOutput()).toBe('test-value');
     });
 
+    it("should require the same JSON file", function () {
+        var a = require('./RequireJsonFile/test.json');
+        var b = require('./RequireJsonFile/test.json');
+        expect(a === b).toBe(true);
+    });
+
     it("should handle JSON file errors", function () {
         require('./RequireJsonCorruptFile');
         expect(TNSGetOutput()).toMatch(/JSON Parse error: Unterminated string$|Unexpected token/)
