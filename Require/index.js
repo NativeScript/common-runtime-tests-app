@@ -201,6 +201,12 @@ describe("TNS require", function () {
        expect(require("~" + fileName)).toBe(global.require(__filename));
     });
 
+    it('resolve directories containing .js in the name as valid packages', function () {
+        require("./ModuleWith.js");
+        var expected = 'module with .js in the name loaded';
+        expect(TNSGetOutput()).toBe(expected);
+    });
+
     it("require file when there is directory with the same name", function () {
         var result = require("./FileAndDirectoryWithSameName");
         var expected = 'file module.js title';
