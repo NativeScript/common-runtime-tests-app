@@ -214,6 +214,13 @@ describe("TNS require", function () {
         expect(result.title).toBe(expected);
     });
 
+    it("require directory with index.json and no package.json", function () {
+        var result = require("./DirectoryWithIndexJson");
+        var expected = 'string from index.json';
+
+        expect(result.title).toBe(expected);
+    });
+
     it("file ending with commented line", function () {
        expect(function () { require("./FileEndingWithCommentedLine"); }).not.toThrow();
     });
@@ -323,13 +330,13 @@ describe("TNS require", function () {
         var expected = 'main started Module Error main ended';
         expect(TNSGetOutput()).toBe(expected);
     });
-         
+
     it('should check node_modules hierarchy before checking app/tns_modules', function () {
         var actual = require("./node_modules/NodeModulesAndTnsModulesConflict");
         var expected = 'package installed in local node_modules folder';
         expect(actual).toBe(expected);
     });
-         
+
     it('should resolve to one and the same module with package.json main', function(){
         var firstModule = require("./ResolveCanonicalPath");
         var secondModule = require("./ResolveCanonicalPath/second");
