@@ -243,7 +243,7 @@ describe("TNS require", function () {
 
     it("shouldn't load invalid JSON file", function () {
         require("./RequireJsonCorruptFile1");
-        expect(TNSGetOutput()).toMatch(/JSON Parse error: Unable to parse JSON string$|Unexpected token/)
+        expect(TNSGetOutput()).toMatch(/JSON Parse error: Unable to parse JSON string$|No identifiers allowed directly after numeric literal$/)
     });
 
     it("when using global in a module global should be defined", function () {
