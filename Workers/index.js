@@ -84,7 +84,7 @@ describe("TNS Workers", () => {
         worker.postMessage({ eval: "postMessage('two');" });
 
         var responseCounter = 0;
-        worker.onmessage = (msg) => {         
+        worker.onmessage = (msg) => {
             responseCounter++;
         };
 
@@ -130,10 +130,10 @@ describe("TNS Workers", () => {
         var a = new Worker("./EvalWorker.js");
 
         var message = {
-            value: { 
-                str: "A message from main", 
-                number: 42, 
-                obj: { prop: "value", innerObj: { innnerProp: 67 }  }, 
+            value: {
+                str: "A message from main",
+                number: 42,
+                obj: { prop: "value", innerObj: { innnerProp: 67 }  },
                 bool: true,
                 nullValue: null
             },
@@ -143,6 +143,32 @@ describe("TNS Workers", () => {
         a.postMessage(message);
         a.onmessage = (msg) => {
             expect(msg.data).toEqual(message.value);
+            a.terminate();
+            done();
+        }
+    });
+
+    it("Send an object containing repeated references", (done) => {
+        var a = new Worker("./EvalWorker.js");
+
+        var ref = { a: "a" };
+        var message = {
+            value: {
+                obj: {
+                    someProp: 5,
+                    table1: [ref, ref],
+                    table2: [ref]
+                }
+            },
+            eval: "postMessage(value);"
+        }
+
+        a.postMessage(message);
+        a.onmessage = (msg) => {
+            expect(msg.data.obj.someProp).toEqual(message.value.obj.someProp);
+            expect(msg.data.obj.table1[0].a).toEqual(message.value.obj.table1[0].a);
+            expect(msg.data.obj.table1[1].a).toEqual(message.value.obj.table1[1].a);
+            expect(msg.data.obj.table2[0].a).toEqual(message.value.obj.table2[0].a);
             a.terminate();
             done();
         }
@@ -192,20 +218,21 @@ describe("TNS Workers", () => {
         worker.terminate();
     });
 
-    it("Should not throw error if post circular object", (done) => {
+    it("Should throw error if post circular object", (done) => {
         var worker = new Worker("./EvalWorker.js");
 
-        var circularObj =  { prop: "value", obj: circularObj };
-        worker.postMessage({ 
-            value: circularObj,
+        var parent = { parent: true };
+        var child = { parent: true };
+        parent.child = child;
+        child.parent = parent;
+
+        expect(() => worker.postMessage({
+            value: parent,
             eval: "postMessage(value)"
-        });
-        
-        worker.onmessage = (msg) => {
-            expect(msg.data).toEqual({ prop: "value" });
-            worker.terminate();
-            done();
-        }
+        })).toThrow();
+
+        worker.terminate();
+        done();
     });
 
     if (global.NSObject) {
@@ -213,7 +240,7 @@ describe("TNS Workers", () => {
             var workersCount = 10;
             var messagesCount = 100;
             var allWorkersResponseCounter = 0;
-            
+
             for(let id = 0; id < workersCount; id++) {
                 let worker = new Worker("./EvalWorker");
                 let responseCounter = 0;
@@ -238,15 +265,15 @@ describe("TNS Workers", () => {
     it("Call close in onclose", (done) => {
         var worker = new Worker("./EvalWorker.js");
 
-        worker.postMessage({ 
-            eval: 
+        worker.postMessage({
+            eval:
             "onclose = () => {\
                 postMessage('closed');\
                 close();\
             };\
             close()"
         });
-        
+
         var responseCounter = 0;
         worker.onmessage = (msg) => {
             expect(msg.data).toBe('closed');
@@ -262,15 +289,15 @@ describe("TNS Workers", () => {
     it("Throw error in onerror", (done) => {
         var worker = new Worker("./EvalWorker.js");
 
-        worker.postMessage({ 
-            eval: 
+        worker.postMessage({
+            eval:
             "onerror = () => {\
                 postMessage('onerror called');\
                 throw new Error('error');\
             };\
             throw new Error('error');"
         });
-        
+
         var onerrorCounter = 0;
         worker.onerror = (err) => {
             onerrorCounter++;
