@@ -148,6 +148,32 @@ describe("TNS Workers", () => {
         }
     });
 
+    it("Send an object containing repeated references", (done) => {
+        var a = new Worker("./EvalWorker.js");
+
+        var ref = { a: "a" };
+        var message = {
+            value: {
+                obj: {
+                    someProp: 5,
+                    table1: [ref, ref],
+                    table2: [ref]
+                }
+            },
+            eval: "postMessage(value);"
+        }
+
+        a.postMessage(message);
+        a.onmessage = (msg) => {
+            expect(msg.data.obj.someProp).toEqual(message.value.obj.someProp);
+            expect(msg.data.obj.table1[0].a).toEqual(message.value.obj.table1[0].a);
+            expect(msg.data.obj.table1[1].a).toEqual(message.value.obj.table1[1].a);
+            expect(msg.data.obj.table2[0].a).toEqual(message.value.obj.table2[0].a);
+            a.terminate();
+            done();
+        }
+    });
+
     it("Send many objects from worker object without waiting for response and terminate", () => {
         var a = new Worker("./EvalWorker.js");
         for (var i = 0; i < 500; i++) {
@@ -199,20 +225,21 @@ describe("TNS Workers", () => {
         worker.terminate();
     });
 
-    it("Should not throw error if post circular object", (done) => {
+    it("Should throw error if post circular object", (done) => {
         var worker = new Worker("./EvalWorker.js");
 
-        var circularObj =  { prop: "value", obj: circularObj };
-        worker.postMessage({
-            value: circularObj,
-            eval: "postMessage(value)"
-        });
+        var parent = { parent: true };
+        var child = { parent: true };
+        parent.child = child;
+        child.parent = parent;
 
-        worker.onmessage = (msg) => {
-            expect(msg.data).toEqual({ prop: "value" });
-            worker.terminate();
-            done();
-        }
+        expect(() => worker.postMessage({
+            value: parent,
+            eval: "postMessage(value)"
+        })).toThrow();
+
+        worker.terminate();
+        done();
     });
 
     if (global.NSObject) {
