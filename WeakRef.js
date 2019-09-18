@@ -35,4 +35,12 @@ describe("WeakRef", function () {
 
         expect(weakref.get()).toBeNull();
     });
+
+    if(global.NSObject) { // platform is iOS
+        it("exceptions", function() {
+            expect(() => new WeakRef()).toThrowError(/undefined must be an object \(evaluating 'new WeakRef\(\)'\)/);
+            expect(() => WeakRef.prototype.get.apply({})).toThrowError(/Object 'this' is not weak reference \(evaluating 'WeakRef.prototype.get.apply\({}\)'\)/);
+            expect(() => WeakRef.prototype.clear.apply(1)).toThrowError(/1 'this' is not weak reference \(evaluating 'WeakRef.prototype.clear.apply\(1\)'\)/);
+        });
+     }
 });
