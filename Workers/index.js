@@ -1,4 +1,5 @@
 describe("TNS Workers", () => {
+    let expectedAliveRuntimes = 1; // Main thread's TNSRuntime
     var originalTimeout;
     var DEFAULT_TIMEOUT_BEFORE_ASSERT = 500;
 
@@ -26,6 +27,7 @@ describe("TNS Workers", () => {
         worker.postMessage({ eval: "postMessage(self === global);" });
         worker.onmessage = (msg) => {
             expect(msg.data).toBe(true);
+            worker.terminate();
             done();
         };
     });
@@ -39,6 +41,7 @@ describe("TNS Workers", () => {
             var worker = new Worker("./idonot-exist.js");
             worker.onerror = (e) => {
                 expect(e).not.toEqual(null);
+                worker.terminate();
                 done();
             }
         });
@@ -318,6 +321,7 @@ describe("TNS Workers", () => {
         setTimeout(() => {
             expect(onerrorCounter).toBe(2);
             expect(onmessageCounter).toBe(1);
+            worker.terminate();
             done();
         }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
@@ -354,12 +358,19 @@ describe("TNS Workers", () => {
 
     it("Should not throw or crash when executing too much JS inside Worker", (done) => {
         var worker = new Worker("./WorkerStressJSTest.js");
+        // Worker is not guaranteed to have finished before the check for runtimes leak, so track it manually
+        expectedAliveRuntimes++;
         // the specific worker will post a message if something isn't right
         worker.onmessage = (msg) => {
-            worker.terminate();
-            done("Exception is thrown in the web worker: " + msg);
+            // Worker sends this message when it finishes successfully
+            expectedAliveRuntimes--;
+            if (msg.data !== "end") {
+                worker.terminate();
+                done("Exception is thrown in the web worker: " + msg);
+            }
         }
         worker.onerror = (e) => {
+            expectedAliveRuntimes--;
             worker.terminate();
             done("Exception is thrown in the web worker: " + e);
         }
@@ -383,13 +394,13 @@ describe("TNS Workers", () => {
         gC();
 
         setTimeout(() => {
+            expectedAliveRuntimes++; // This nature of this test prevents us from closing the worker (we need not store a reference to it)
             expect(onmessageCalled).toBe(true);
             done();
         }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
     it("Test worker should close and not receive messages after close() call", (done) => {
-        var messageReceived = false;
         var worker = new Worker("./EvalWorker.js");
 
         worker.postMessage({
@@ -468,6 +479,55 @@ describe("TNS Workers", () => {
             done();
         }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
+
+    if(global.NSObject) { // platform is iOS
+        it("no crash during or after runtime teardown on iOS", (done) => {
+            // reduce number of workers on older (32-bit devices) to avoid sporadic failures due to timeout
+            const numWorkers = (interop.sizeof(interop.types.id) == 4) ? 4 : 10;
+            const timeout = DEFAULT_TIMEOUT_BEFORE_ASSERT*3.5;
+
+            let messageProducerTimeout = null;
+            let iteration = 0;
+            const produceMessageInLoop = () => {
+                NSNotificationCenter.defaultCenter.postNotificationNameObjectUserInfo('send-to-worker', { iteration }, null);
+                iteration++;
+                messageProducerTimeout = setTimeout(produceMessageInLoop, 1);
+            };
+            produceMessageInLoop();
+
+            let onCloseEvents = 0;
+            let onStartEvents = 0;
+            for (let i = 0; i < numWorkers; i++) {;
+               const worker = new Worker("./TeardownCrashWorker.js");
+               worker.onmessage = (msg) => {
+                   if (msg.data === "closing") {
+                      onCloseEvents++;
+                   }
+                   else if (msg.data === "starting") {
+                      onStartEvents++;
+                      worker.postMessage(i);
+                   }
+               }
+            }
+
+            setTimeout(() => {
+                clearTimeout(messageProducerTimeout);
+
+                expect(onStartEvents).toBeGreaterThan(0, `At least 1 worker should have started in ${timeout} ms`);
+                expect(onCloseEvents).toBeGreaterThan(0, `At least 1 worker should have finished in ${timeout} ms`);
+                done();
+            }, timeout);
+        });
+        
+        it("Check for leaked runtimes", function(done) {
+            setTimeout(() => {
+                const runtimesCount = TNSRuntime.runtimes().count;
+                expect(runtimesCount).toBe(expectedAliveRuntimes, `Found ${runtimesCount} runtimes alive. Expected ${expectedAliveRuntimes}.`);
+                done();
+            }, 1000);
+        });
+         
+    } // platform is iOS
 
     function generateRandomString(strLen) {
         var chars = "abcAbc defgDEFG 1234567890 ";

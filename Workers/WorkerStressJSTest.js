@@ -18,3 +18,5 @@ for (var i = 0; i < 10000; i++) {
         postMessage("Unexpected exception: " + ex);
     }
 }
+
+postMessage("end");
