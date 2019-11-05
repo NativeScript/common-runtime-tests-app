@@ -486,12 +486,15 @@ describe("TNS Workers", () => {
             const numWorkers = (interop.sizeof(interop.types.id) == 4) ? 4 : 10;
             const timeout = DEFAULT_TIMEOUT_BEFORE_ASSERT*3.5;
 
-            let messageProducerTimeout = null;
+            let messageProducerTimeout = true;
             let iteration = 0;
             const produceMessageInLoop = () => {
                 NSNotificationCenter.defaultCenter.postNotificationNameObjectUserInfo('send-to-worker', { iteration }, null);
                 iteration++;
-                messageProducerTimeout = setTimeout(produceMessageInLoop, 1);
+                // Prevent against rescheduling after we've been stopped
+                if (messageProducerTimeout) {
+                    messageProducerTimeout = setTimeout(produceMessageInLoop, 1);
+                }
             };
             produceMessageInLoop();
 
@@ -512,6 +515,8 @@ describe("TNS Workers", () => {
 
             setTimeout(() => {
                 clearTimeout(messageProducerTimeout);
+                // Signal we've stopped to prevent against rescheduling by an already queued timer tick
+                messageProducerTimeout = null;
 
                 expect(onStartEvents).toBeGreaterThan(0, `At least 1 worker should have started in ${timeout} ms`);
                 expect(onCloseEvents).toBeGreaterThan(0, `At least 1 worker should have finished in ${timeout} ms`);
