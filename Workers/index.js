@@ -331,8 +331,7 @@ describe("TNS Workers", () => {
             done();
             return;
         }
-        var onerrorCounter = 0;
-        let message = "";
+        let onerrorCounter = 0;
         const delay = (ms) => {
             new Promise((resolve) => setTimeout(resolve, ms));
         };
