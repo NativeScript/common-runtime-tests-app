@@ -6,6 +6,4 @@ onmessage = function (msg) {
         console.log(e);
         postMessage("failed");
     }
-
-
 }
