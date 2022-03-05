@@ -3,7 +3,7 @@ describe("TNS Workers", () => {
     var originalTimeout;
     var DEFAULT_TIMEOUT_BEFORE_ASSERT = 500;
 
-    if(global.NSObject) { // if platform is iOS
+    if (global.NSObject) { // if platform is iOS
         DEFAULT_TIMEOUT_BEFORE_ASSERT = 1000;
     } else { // if Android
         // necessary in order to accommodate slower and older android emulators
@@ -136,7 +136,7 @@ describe("TNS Workers", () => {
             value: {
                 str: "A message from main",
                 number: 42,
-                obj: { prop: "value", innerObj: { innnerProp: 67 }  },
+                obj: { prop: "value", innerObj: { innnerProp: 67 } },
                 bool: true,
                 nullValue: null
             },
@@ -251,7 +251,7 @@ describe("TNS Workers", () => {
             var messagesCount = 100;
             var allWorkersResponseCounter = 0;
 
-            for(let id = 0; id < workersCount; id++) {
+            for (let id = 0; id < workersCount; id++) {
                 let worker = new Worker("./EvalWorker");
                 let responseCounter = 0;
                 worker.onmessage = (msg) => {
@@ -277,7 +277,7 @@ describe("TNS Workers", () => {
 
         worker.postMessage({
             eval:
-            "onclose = () => {\
+                "onclose = () => {\
                 postMessage('closed');\
                 close();\
             };\
@@ -301,7 +301,7 @@ describe("TNS Workers", () => {
 
         worker.postMessage({
             eval:
-            "onerror = () => {\
+                "onerror = () => {\
                 postMessage('onerror called');\
                 throw new Error('error');\
             };\
@@ -326,12 +326,60 @@ describe("TNS Workers", () => {
         }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
+    it("Should not throw errors when accessing native objects and terminating", (done) => {
+        if (global.NSObject) {
+            done();
+            return;
+        }
+        let onerrorCounter = 0;
+        const delay = (ms) => {
+            new Promise((resolve) => setTimeout(resolve, ms));
+        };
+        const run = async () => {
+            const newWorker = () => {
+                return new Promise((resolve) => {
+                    const worker = new Worker("./NativeWorkWorker.js");
+                    worker.onerror = (err) => {
+                        onerrorCounter++;
+                        resolve(worker);
+                    };
+                    worker.onmessage = (result) => {
+                        try {
+                            if (result.data !== "success") {
+                                onerrorCounter++;
+                            }
+                            if (onerrorCounter === 0) {
+                                worker.terminate();
+                            }
+                        } catch (e) {
+                            console.log(e);
+                        }
+                        resolve(worker);
+                    };
+                    worker.postMessage('go!');
+                });
+            };
+
+            for (let i = 0; i < 5; i++) {
+                const worker = await newWorker();
+                await delay(50);
+                // worker.terminate();
+                // await delay(90);
+                // worker.terminate();
+            }
+        };
+        run().then(() => {
+            expect(onerrorCounter).toBe(0);
+            done();
+        });
+    });
+
     it("If error is thrown in close() should call onerror but should not execute any other tasks ", (done) => {
         var worker = new Worker("./EvalWorker.js");
 
         worker.postMessage({
             eval:
-            "onmessage = (msg) => { postMessage(msg.data + ' pong'); };\
+                "onmessage = (msg) => { postMessage(msg.data + ' pong'); };\
             onerror = (err) => { postMessage('pong'); return false; };\
             onclose = () => { throw new Error('error thrown from close()'); };\
             close();"
@@ -438,7 +486,7 @@ describe("TNS Workers", () => {
 
         worker.postMessage({
             eval:
-            "onerror = function(err) { \
+                "onerror = function(err) { \
                 return false; \
             }; \
             throw 42;"
@@ -454,7 +502,7 @@ describe("TNS Workers", () => {
 
         worker.postMessage({
             eval:
-            "onerror = function(err) { \
+                "onerror = function(err) { \
                 postMessage(err); \
                 return true; \
             }; \
@@ -480,11 +528,11 @@ describe("TNS Workers", () => {
         }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
-    if(global.NSObject) { // platform is iOS
+    if (global.NSObject) { // platform is iOS
         it("no crash during or after runtime teardown on iOS", (done) => {
             // reduce number of workers on older (32-bit devices) to avoid sporadic failures due to timeout
             const numWorkers = (interop.sizeof(interop.types.id) == 4) ? 4 : 10;
-            const timeout = DEFAULT_TIMEOUT_BEFORE_ASSERT*3.5;
+            const timeout = DEFAULT_TIMEOUT_BEFORE_ASSERT * 3.5;
 
             let messageProducerTimeout = true;
             let iteration = 0;
@@ -500,17 +548,17 @@ describe("TNS Workers", () => {
 
             let onCloseEvents = 0;
             let onStartEvents = 0;
-            for (let i = 0; i < numWorkers; i++) {;
-               const worker = new Worker("./TeardownCrashWorker.js");
-               worker.onmessage = (msg) => {
-                   if (msg.data === "closing") {
-                      onCloseEvents++;
-                   }
-                   else if (msg.data === "starting") {
-                      onStartEvents++;
-                      worker.postMessage(i);
-                   }
-               }
+            for (let i = 0; i < numWorkers; i++) {
+                const worker = new Worker("./TeardownCrashWorker.js");
+                worker.onmessage = (msg) => {
+                    if (msg.data === "closing") {
+                        onCloseEvents++;
+                    }
+                    else if (msg.data === "starting") {
+                        onStartEvents++;
+                        worker.postMessage(i);
+                    }
+                }
             }
 
             setTimeout(() => {
@@ -523,15 +571,15 @@ describe("TNS Workers", () => {
                 done();
             }, timeout);
         });
-        
-        it("Check for leaked runtimes", function(done) {
+
+        it("Check for leaked runtimes", function (done) {
             setTimeout(() => {
                 const runtimesCount = TNSRuntime.runtimes().count;
                 expect(runtimesCount).toBe(expectedAliveRuntimes, `Found ${runtimesCount} runtimes alive. Expected ${expectedAliveRuntimes}.`);
                 done();
             }, 1000);
         });
-         
+
     } // platform is iOS
 
     function generateRandomString(strLen) {
