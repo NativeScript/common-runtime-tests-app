@@ -1,4 +1,4 @@
-describe("WeakRef", function () {
+xdescribe("WeakRef", function () {
     it("should exist", function () {
         expect(WeakRef).toBeDefined();
     });

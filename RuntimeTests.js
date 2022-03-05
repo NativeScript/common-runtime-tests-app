@@ -4,12 +4,13 @@ describe(module.id, function () {
     });
 });
 
-describe("Unicode tests", function () {
-    it("Get unicode property", function () {
-        var obj = NSObject.alloc().init();
-        obj.Ł = "Ł"
-        expect(obj.Ł).toBe("Ł");
+if (global.NSObject) { // platform is iOS
+    describe("Unicode tests", function () {
+        it("Get unicode property", function () {
+            var obj = NSObject.alloc().init();
+            obj.Ł = "Ł"
+            expect(obj.Ł).toBe("Ł");
+        });
     });
-});
-
+}
 
