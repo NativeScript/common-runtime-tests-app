@@ -550,7 +550,6 @@ describe("TNS Workers", () => {
             let onCloseEvents = 0;
             let onStartEvents = 0;
             for (let i = 0; i < numWorkers; i++) {
-                ;
                 const worker = new Worker("./TeardownCrashWorker.js");
                 worker.onmessage = (msg) => {
                     if (msg.data === "closing") {
