@@ -238,12 +238,12 @@ describe("TNS require", function () {
 
     it("should handle JSON file errors", function () {
         require('./RequireJsonCorruptFile');
-        expect(TNSGetOutput()).toMatch(/JSON Parse error: Unterminated string$|Unexpected token/)
+        expect(TNSGetOutput()).toMatch(/JSON Parse error: Unterminated string$|Unexpected token|Bad control character/);
     });
 
     it("shouldn't load invalid JSON file", function () {
         require("./RequireJsonCorruptFile1");
-        expect(TNSGetOutput()).toMatch(/Unexpected token s in JSON at position 1$|JSON Parse error: Unable to parse JSON string$|No identifiers allowed directly after numeric literal$/)
+        expect(TNSGetOutput()).toMatch(/Unexpected token s in JSON at position 1$|JSON Parse error: Unable to parse JSON string$|No identifiers allowed directly after numeric literal$|Unexpected non-whitespace character/);
     });
 
     it("when using global in a module global should be defined", function () {
