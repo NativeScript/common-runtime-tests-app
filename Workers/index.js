@@ -374,6 +374,104 @@ describe("TNS Workers", () => {
         });
     });
 
+
+    it("Should not throw errors when accessing objects instantiated from native extended classes using `extend` and terminating", (done) => {
+        if (global.NSObject) {
+            done();
+            return;
+        }
+        let onerrorCounter = 0;
+        const delay = (ms) => {
+            new Promise((resolve) => setTimeout(resolve, ms));
+        };
+        const run = async () => {
+            const newWorker = () => {
+                return new Promise((resolve) => {
+                    const worker = new Worker("./NativeClassExtendWorker.js");
+                    worker.onerror = (err) => {
+                        onerrorCounter++;
+                        resolve(worker);
+                    };
+                    worker.onmessage = (result) => {
+                        try {
+                            if (result.data !== "success") {
+                                onerrorCounter++;
+                            }
+                            if (onerrorCounter === 0) {
+                                worker.terminate();
+                            }
+                        } catch (e) {
+                            console.log(e);
+                        }
+                        resolve(worker);
+                    };
+                    worker.postMessage('go!');
+                });
+            };
+
+            for (let i = 0; i < 5; i++) {
+                const worker = await newWorker();
+                await delay(50);
+                // worker.terminate();
+                // await delay(90);
+                // worker.terminate();
+            }
+        };
+        run().then(() => {
+            expect(onerrorCounter).toBe(0);
+            done();
+        });
+    });
+
+    it("Should not throw errors when accessing objects instantiated from native extended classes using `NativeClass` and terminating", (done) => {
+        if (global.NSObject) {
+            done();
+            return;
+        }
+        let onerrorCounter = 0;
+        const delay = (ms) => {
+            new Promise((resolve) => setTimeout(resolve, ms));
+        };
+        const run = async () => {
+            const newWorker = () => {
+                return new Promise((resolve) => {
+                    const worker = new Worker("./NativeClassExtendNativeClassWorker.js");
+                    worker.onerror = (err) => {
+                        console.error(err);
+                        onerrorCounter++;
+                        resolve(worker);
+                    };
+                    worker.onmessage = (result) => {
+                        try {
+                            if (result.data !== "success") {
+                                onerrorCounter++;
+                            }
+                            if (onerrorCounter === 0) {
+                                worker.terminate();
+                            }
+                        } catch (e) {
+                            console.log(e);
+                        }
+                        resolve(worker);
+                    };
+                    worker.postMessage('go!');
+                });
+            };
+
+            for (let i = 0; i < 5; i++) {
+                const worker = await newWorker();
+                await delay(50);
+                // worker.terminate();
+                // await delay(90);
+                // worker.terminate();
+            }
+        };
+        run().then(() => {
+            expect(onerrorCounter).toBe(0);
+            done();
+        });
+    });
+
     it("If error is thrown in close() should call onerror but should not execute any other tasks ", (done) => {
         var worker = new Worker("./EvalWorker.js");
 
