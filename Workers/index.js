@@ -472,6 +472,28 @@ describe("TNS Workers", () => {
         }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
+    it("Worker should fully shut down after close() without needing terminate()", (done) => {
+        var worker = new Worker("./EvalWorker.js");
+
+        worker.postMessage({
+            eval: "close(); postMessage('closing');"
+        });
+
+        var responseCounter = 0;
+        worker.onmessage = (msg) => {
+            responseCounter++;
+        };
+
+        setTimeout(() => {
+            worker.postMessage({ eval: "postMessage('should not arrive');" });
+        }, 500);
+
+        setTimeout(() => {
+            expect(responseCounter).toBe(1);
+            done();
+        }, DEFAULT_TIMEOUT_BEFORE_ASSERT + 1000);
+    });
+
     it("Test onerror invoked for a script that has invalid syntax", (done) => {
         var worker = new Worker("./WorkerInvalidSyntax.js");
 
@@ -529,6 +551,105 @@ describe("TNS Workers", () => {
     });
 
     if (global.NSObject) { // platform is iOS
+        it("Worker has active CFRunLoop that can execute NSTimer events", (done) => {
+            var worker = new Worker("./EvalWorker.js");
+
+            let messages = [];
+            worker.onmessage = msg => {
+                messages.push(msg.data);
+            };
+
+            worker.postMessage({ eval: `
+            // older runtimes only provide setTimeout through the timers module
+            if (typeof setTimeout === "undefined") {
+                require("../../Infrastructure/timers");
+            }
+            (function func() {
+                postMessage("callback");
+                setTimeout(() => {
+                    postMessage("callback");
+                }, 500);
+            })();` });
+
+            for (var i = 0; i < 3; i++) {
+                worker.postMessage({ eval: `postMessage("${i}")` });
+            }
+
+            setTimeout(() => {
+                worker.postMessage({ eval: `postMessage("3")` });
+                setTimeout(() => {
+                    worker.terminate();
+                    expect(messages).toEqual([ "callback", "0", "1", "2", "callback", "3" ]);
+                    done();
+                }, 100);
+            }, 1000);
+        });
+
+        it("Worker should marshal callbacks on the same thread that the native block was invoked on", (done) => {
+            let worker = new Worker("./EvalWorker.js");
+
+            worker.onmessage = msg => {
+                expect(msg.data.callingThreadHash).not.toEqual(msg.data.callbackThreadHash);
+                expect(msg.data.callbackThreadHash).toEqual(NSThread.currentThread.hash);
+                worker.terminate();
+                done();
+            };
+
+            worker.postMessage({ eval: `
+                let sessionConfig = NSURLSessionConfiguration.defaultSessionConfiguration;
+                let queue = NSOperationQueue.mainQueue;
+                let session = NSURLSession.sessionWithConfigurationDelegateDelegateQueue(sessionConfig, null, queue);
+                let request = NSMutableURLRequest.requestWithURL(NSURL.URLWithString("https://google.com"));
+                request.HTTPMethod = "GET";
+                let callingThreadHash = NSThread.currentThread.hash;
+                let task = session.dataTaskWithRequestCompletionHandler(request, function (data, response, error) {
+                    self.postMessage({
+                        callingThreadHash: callingThreadHash,
+                        callbackThreadHash: NSThread.currentThread.hash
+                    });
+                });
+                task.resume();
+            ` });
+        });
+
+        it("Should not crash if the worker registers a notification", (done) => {
+            var worker = new Worker("./EvalWorker.js");
+            worker.onmessage = (msg) => {
+                worker.terminate();
+                NSNotificationCenter.defaultCenter.postNotificationNameObject("MyNotification", null);
+                done();
+            };
+
+            var workerScript = `
+                var NotificationObserver = /** @class */ (function (_super) {
+                    __extends(NotificationObserver, _super);
+                    function NotificationObserver() {
+                        return _super !== null && _super.apply(this, arguments) || this;
+                    }
+                    NotificationObserver.initWithCallback = function (onReceiveCallback) {
+                        var observer = _super.new.call(this);
+                        observer._onReceiveCallback = onReceiveCallback;
+                        return observer;
+                    };
+                    NotificationObserver.prototype.onReceive = function (notification) {
+                        this._onReceiveCallback(notification);
+                    };
+                    NotificationObserver.ObjCExposedMethods = {
+                        onReceive: { returns: interop.types.void, params: [NSNotification] },
+                    };
+                    return NotificationObserver;
+                    }(NSObject));
+
+                    const observer = NotificationObserver.initWithCallback(notification => { });
+
+                    NSNotificationCenter.defaultCenter.addObserverSelectorNameObject(observer, "onReceive", "MyNotification", null);
+
+                    postMessage(self === global);
+            `;
+
+            worker.postMessage({ eval: workerScript });
+        });
+
         it("no crash during or after runtime teardown on iOS", (done) => {
             // reduce number of workers on older (32-bit devices) to avoid sporadic failures due to timeout
             const numWorkers = (interop.sizeof(interop.types.id) == 4) ? 4 : 10;
@@ -572,13 +693,15 @@ describe("TNS Workers", () => {
             }, timeout);
         });
 
-        it("Check for leaked runtimes", function (done) {
-            setTimeout(() => {
-                const runtimesCount = TNSRuntime.runtimes().count;
-                expect(runtimesCount).toBe(expectedAliveRuntimes, `Found ${runtimesCount} runtimes alive. Expected ${expectedAliveRuntimes}.`);
-                done();
-            }, 1000);
-        });
+        if (global.TNSRuntime) { // JavaScriptCore-based runtime only
+            it("Check for leaked runtimes", function (done) {
+                setTimeout(() => {
+                    const runtimesCount = TNSRuntime.runtimes().count;
+                    expect(runtimesCount).toBe(expectedAliveRuntimes, `Found ${runtimesCount} runtimes alive. Expected ${expectedAliveRuntimes}.`);
+                    done();
+                }, 1000);
+            });
+        }
 
     } // platform is iOS
 

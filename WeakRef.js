@@ -1,20 +1,15 @@
-xdescribe("WeakRef", function () {
+describe("WeakRef", function () {
     it("should exist", function () {
         expect(WeakRef).toBeDefined();
     });
 
-    it("should work", function (done) {
-        var obj = {};
-        var weakref = new WeakRef(obj);
-
-        obj = null;
-        __collect();
-
-        setTimeout(() => {
-            expect(weakref.get()).toBe(null);
-            expect(obj).toBe(null);
-            done();
-        }, 10);
+    // deref/get tests have been removed since they are now coming from v8 and not our code
+    // we can safely assume it's well-tested.
+    // we only check to make sure we have a `get` alias to `deref` since NativeScript
+    // has used `get()` long before `deref()` was standardized.
+    it("get should work", function () {
+        expect(WeakRef.prototype.get).toBeDefined();
+        expect(WeakRef.prototype.get).toEqual(WeakRef.prototype.deref);
     });
 
     it("should throw when constructed with zero parameters", function () {
@@ -31,20 +26,22 @@ xdescribe("WeakRef", function () {
         }
     });
 
-    it("should be clearable", function () {
-        var obj = {};
-        var weakref = new WeakRef(obj);
+    it("clear should exist", function () {
+        expect(WeakRef.prototype.clear).toBeDefined();
 
-        weakref.clear();
+        const warn = console.warn
+        console.warn = (message) => {
+            warn(message);
+            expect(message).toEqual("WeakRef.clear() is non-standard and has been deprecated. It does nothing and the call can be safely removed.")
+        }
 
-        expect(weakref.get()).toBeNull();
+        const obj = {}
+        const weakRef = new WeakRef(obj);
+
+        weakRef.clear();
+
+        // reset console.warn to it's original
+        console.warn = warn;
     });
 
-    if(global.NSObject) { // platform is iOS
-        it("exceptions", function() {
-            expect(() => new WeakRef()).toThrowError(/undefined must be an object \(evaluating 'new WeakRef\(\)'\)/);
-            expect(() => WeakRef.prototype.get.apply({})).toThrowError(/Object 'this' is not weak reference \(evaluating 'WeakRef.prototype.get.apply\({}\)'\)/);
-            expect(() => WeakRef.prototype.clear.apply(1)).toThrowError(/1 'this' is not weak reference \(evaluating 'WeakRef.prototype.clear.apply\(1\)'\)/);
-        });
-     }
 });
