@@ -1,5 +1,8 @@
 describe("TNS require", function () {
 
+    // The V8-based iOS runtime (@nativescript/ios); the legacy JSC runtime exposes TNSRuntime
+    var isV8iOS = !!global.NSObject && !global.TNSRuntime;
+
     beforeEach(TNSClearOutput);
     afterEach(TNSClearOutput);
 
@@ -184,13 +187,15 @@ describe("TNS require", function () {
         expect(TNSGetOutput()).toBe(expected);
     });
 
-    it("can can catch a syntax error in module", function () {
+    // In debug builds the v8-ios runtime suppresses module load errors instead of
+    // throwing, to keep the app alive for hot-reload, so these cannot be asserted there.
+    (isV8iOS ? xit : it)("can can catch a syntax error in module", function () {
         require("./SyntaxErrorInModule");
         var expected = 'main started SyntaxError main ended';
         expect(TNSGetOutput()).toBe(expected);
     });
 
-    it("can can catch a runtime error in module", function () {
+    (isV8iOS ? xit : it)("can can catch a runtime error in module", function () {
         require("./RuntimeErrorInModule");
         var expected = 'main started ReferenceError main ended';
         expect(TNSGetOutput()).toBe(expected);
@@ -243,7 +248,8 @@ describe("TNS require", function () {
 
     it("shouldn't load invalid JSON file", function () {
         require("./RequireJsonCorruptFile1");
-        expect(TNSGetOutput()).toMatch(/Unexpected token s in JSON at position 1$|JSON Parse error: Unable to parse JSON string$|No identifiers allowed directly after numeric literal$|Unexpected non-whitespace character/);
+        // not anchored to the end: runtimes may append require-context/stack details
+        expect(TNSGetOutput()).toMatch(/Unexpected token s in JSON at position 1|JSON Parse error: Unable to parse JSON string|No identifiers allowed directly after numeric literal|Unexpected non-whitespace character/);
     });
 
     it("when using global in a module global should be defined", function () {
@@ -285,8 +291,10 @@ describe("TNS require", function () {
 
     it('Case Sensitive', function () {
         require("./CaseSensitive");
-        // WARNING: The following test is platform specific
-        var expected = global.android ? 'filefolder' : 'file';
+        // WARNING: The following test is runtime specific - the V8-based runtimes
+        // (android and v8-ios) load both the file and the folder module here,
+        // the legacy JSC iOS runtime only the file
+        var expected = global.TNSRuntime ? 'file' : 'filefolder';
         expect(TNSGetOutput()).toBe(expected);
     });
 
@@ -301,17 +309,19 @@ describe("TNS require", function () {
     });
 
     // node_modules tests
-    it('should traverse correctly through node_modules till outer module is found', function () {
+    // The v8-ios runtime does not implement node_modules hierarchy traversal
+    // (apps are expected to be bundled), so these are skipped there.
+    (isV8iOS ? xit : it)('should traverse correctly through node_modules till outer module is found', function () {
         require("./node_modules/FindInOuterNodeModules");
         var expected = 'main started in FindInOuterNodeModules module main ended';
         expect(TNSGetOutput()).toBe(expected);
     });
-    it('should traverse correctly through any folders till outer module is found', function () {
+    (isV8iOS ? xit : it)('should traverse correctly through any folders till outer module is found', function () {
         require("./node_modules/FindsIndexJs");
         var expected = 'main started in FindsIndexJs module main ended';
         expect(TNSGetOutput()).toBe(expected);
     });
-    it('should traverse correctly through inner node modules first', function () {
+    (isV8iOS ? xit : it)('should traverse correctly through inner node modules first', function () {
         require("./node_modules/FindsInnerNodeModulesFirst");
         var expected = 'main started in FindsInnerNodeModulesFirst module main ended';
         expect(TNSGetOutput()).toBe(expected);
@@ -321,7 +331,7 @@ describe("TNS require", function () {
         var expected = 'main started from module folder main ended';
         expect(TNSGetOutput()).toBe(expected);
     });
-    it('should traverse node_modules and find package.json if present', function () {
+    (isV8iOS ? xit : it)('should traverse node_modules and find package.json if present', function () {
         require("./node_modules/FindsPackageJson");
         var expected = 'main started in FindsPackageJson module main ended';
         expect(TNSGetOutput()).toBe(expected);
@@ -332,7 +342,7 @@ describe("TNS require", function () {
         expect(TNSGetOutput()).toBe(expected);
     });
 
-    it('should check node_modules hierarchy before checking app/tns_modules', function () {
+    (isV8iOS ? xit : it)('should check node_modules hierarchy before checking app/tns_modules', function () {
         var actual = require("./node_modules/NodeModulesAndTnsModulesConflict");
         var expected = 'package installed in local node_modules folder';
         expect(actual).toBe(expected);

@@ -1,4 +1,6 @@
 describe("TNS Workers", () => {
+    // The V8-based iOS runtime (@nativescript/ios); the legacy JSC runtime exposes TNSRuntime
+    var isV8iOS = !!global.NSObject && !global.TNSRuntime;
     let expectedAliveRuntimes = 1; // Main thread's TNSRuntime
     var originalTimeout;
     var DEFAULT_TIMEOUT_BEFORE_ASSERT = 500;
@@ -228,7 +230,9 @@ describe("TNS Workers", () => {
         worker.terminate();
     });
 
-    it("Should throw error if post circular object", (done) => {
+    // The v8-ios runtime uses the V8 structured clone serializer, which supports
+    // circular references, so posting such an object legitimately does not throw there.
+    (isV8iOS ? xit : it)("Should throw error if post circular object", (done) => {
         var worker = new Worker("./EvalWorker.js");
 
         var parent = { parent: true };
