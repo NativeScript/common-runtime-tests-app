@@ -1,6 +1,9 @@
 describe("TNS Workers", () => {
     // The V8-based iOS runtime (@nativescript/ios); the legacy JSC runtime exposes TNSRuntime
     var isV8iOS = !!global.NSObject && !global.TNSRuntime;
+    // Runtimes that serialize worker messages with the V8 structured clone
+    // serializer (Android and @nativescript/ios); the legacy JSC runtime uses JSON
+    var isStructuredClone = !global.NSObject || isV8iOS;
     let expectedAliveRuntimes = 1; // Main thread's TNSRuntime
     var originalTimeout;
     var DEFAULT_TIMEOUT_BEFORE_ASSERT = 500;
@@ -230,9 +233,9 @@ describe("TNS Workers", () => {
         worker.terminate();
     });
 
-    // The v8-ios runtime uses the V8 structured clone serializer, which supports
+    // The V8-based runtimes use the structured clone serializer, which supports
     // circular references, so posting such an object legitimately does not throw there.
-    (isV8iOS ? xit : it)("Should throw error if post circular object", (done) => {
+    (isStructuredClone ? xit : it)("Should throw error if post circular object", (done) => {
         var worker = new Worker("./EvalWorker.js");
 
         var parent = { parent: true };
@@ -247,6 +250,74 @@ describe("TNS Workers", () => {
 
         worker.terminate();
         done();
+    });
+
+    (isStructuredClone ? it : xit)("Should round-trip circular objects (structured clone)", (done) => {
+        var worker = new Worker("./EvalWorker.js");
+
+        var parent = { name: "parent" };
+        var child = { name: "child" };
+        parent.child = child;
+        child.parent = parent;
+
+        worker.postMessage({
+            value: parent,
+            eval: "postMessage(value)"
+        });
+
+        worker.onmessage = (msg) => {
+            expect(msg.data.name).toBe("parent");
+            expect(msg.data.child.name).toBe("child");
+            expect(msg.data.child.parent).toBe(msg.data);
+            worker.terminate();
+            done();
+        };
+    });
+
+    (isStructuredClone ? it : xit)("Should throw DataCloneError when posting a function", () => {
+        var worker = new Worker("./EvalWorker.js");
+
+        expect(() => worker.postMessage({ fn: () => 42 })).toThrow();
+
+        worker.terminate();
+    });
+
+    (isStructuredClone ? it : xit)("Should round-trip Date, RegExp, Map, Set, TypedArray and undefined (structured clone)", (done) => {
+        var worker = new Worker("./EvalWorker.js");
+
+        var message = {
+            value: {
+                date: new Date(1700000000000),
+                regexp: /ab+c/gi,
+                map: new Map([["key1", 1], ["key2", { nested: true }]]),
+                set: new Set([1, 2, 3]),
+                typedArray: new Int32Array([1, 2, 3, 4]),
+                undefinedValue: undefined,
+                // string form keeps the file parseable on engines without BigInt literals
+                bigint: BigInt("9007199254740993")
+            },
+            eval: "postMessage(value)"
+        };
+
+        worker.postMessage(message);
+        worker.onmessage = (msg) => {
+            expect(msg.data.date instanceof Date).toBe(true);
+            expect(msg.data.date.getTime()).toBe(1700000000000);
+            expect(msg.data.regexp instanceof RegExp).toBe(true);
+            expect(msg.data.regexp.source).toBe("ab+c");
+            expect(msg.data.map instanceof Map).toBe(true);
+            expect(msg.data.map.get("key1")).toBe(1);
+            expect(msg.data.map.get("key2").nested).toBe(true);
+            expect(msg.data.set instanceof Set).toBe(true);
+            expect(msg.data.set.has(2)).toBe(true);
+            expect(msg.data.typedArray instanceof Int32Array).toBe(true);
+            expect(msg.data.typedArray[3]).toBe(4);
+            expect("undefinedValue" in msg.data).toBe(true);
+            expect(msg.data.undefinedValue).toBe(undefined);
+            expect(msg.data.bigint).toBe(BigInt("9007199254740993"));
+            worker.terminate();
+            done();
+        };
     });
 
     if (global.NSObject) {
@@ -553,6 +624,159 @@ describe("TNS Workers", () => {
             done();
         }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
+
+    if (!global.NSObject) { // platform is Android
+        it("Should run worker thread with background priority by default", (done) => {
+            var worker = new Worker("./EvalWorker.js");
+
+            worker.postMessage({
+                eval: "postMessage(android.os.Process.getThreadPriority(android.os.Process.myTid()));"
+            });
+            worker.onmessage = (msg) => {
+                expect(msg.data).toBe(10); // android.os.Process.THREAD_PRIORITY_BACKGROUND
+                worker.terminate();
+                done();
+            };
+        });
+
+        it("Should apply the androidPriority Worker option to the worker thread", (done) => {
+            var worker = new Worker("./EvalWorker.js", { androidPriority: "lowest" });
+
+            worker.postMessage({
+                eval: "postMessage(android.os.Process.getThreadPriority(android.os.Process.myTid()));"
+            });
+            worker.onmessage = (msg) => {
+                expect(msg.data).toBe(19); // android.os.Process.THREAD_PRIORITY_LOWEST
+                worker.terminate();
+                done();
+            };
+        });
+
+        it("Should throw when androidPriority is an unknown string", () => {
+            expect(() => new Worker("./EvalWorker.js", { androidPriority: "turbo" })).toThrow();
+        });
+
+        it("Worker thread should have a working Java Looper (Handler delayed post fires)", (done) => {
+            var worker = new Worker("./EvalWorker.js");
+
+            worker.postMessage({
+                eval:
+                    "var handler = new android.os.Handler(android.os.Looper.myLooper());\
+                    handler.postDelayed(new java.lang.Runnable({ run: () => postMessage('handler-ran') }), 50);"
+            });
+            worker.onmessage = (msg) => {
+                expect(msg.data).toBe("handler-ran");
+                worker.terminate();
+                done();
+            };
+        });
+
+        it("Worker thread should execute JS timers (setTimeout fires on the worker looper)", (done) => {
+            var worker = new Worker("./EvalWorker.js");
+
+            worker.postMessage({
+                // the test app only wires global.setTimeout on the main thread,
+                // so use the runtime's primitive directly
+                eval: "__ns__setTimeout(() => postMessage('timeout-ran'), 50);"
+            });
+            worker.onmessage = (msg) => {
+                expect(msg.data).toBe("timeout-ran");
+                worker.terminate();
+                done();
+            };
+        });
+
+        it("Should fall back to app-root-relative worker paths when the caller has no script name (eval)", (done) => {
+            // eval'd code has no script name, so the path can't be resolved
+            // relative to the caller; the runtime falls back to the app root
+            var worker = eval("new Worker('./shared/Workers/EvalWorker.js')");
+
+            worker.postMessage({ eval: "postMessage('pong');" });
+            worker.onmessage = (msg) => {
+                expect(msg.data).toBe("pong");
+                worker.terminate();
+                done();
+            };
+        });
+
+        it("Should support creating workers from within workers (nested workers)", (done) => {
+            var worker = new Worker("./EvalWorker.js");
+
+            // the eval'd code has no script name, so the child path is
+            // resolved relative to the app root
+            worker.postMessage({
+                eval:
+                    "var child = new Worker('./shared/Workers/EvalWorker.js');\
+                    child.onmessage = (msg) => postMessage('child says: ' + msg.data);\
+                    child.onerror = (e) => { postMessage('child error: ' + e.message); return true; };\
+                    child.postMessage({ eval: 'postMessage(value)', value: 'hello from nested worker' });"
+            });
+
+            worker.onerror = (e) => {
+                console.log("NESTED WORKER TEST ERROR: " + e.message + " | " + e.stackTrace);
+                done("nested worker error: " + e.message);
+            };
+            worker.onmessage = (msg) => {
+                expect(msg.data).toBe("child says: hello from nested worker");
+                worker.terminate(); // also terminates the nested child
+                done();
+            };
+        });
+
+        it("Should terminate nested workers when their parent is terminated", (done) => {
+            var worker = new Worker("./EvalWorker.js");
+
+            worker.postMessage({
+                eval:
+                    "var child = new Worker('./shared/Workers/EvalWorker.js');\
+                    child.onmessage = (msg) => postMessage(msg.data);\
+                    child.postMessage({ eval: 'postMessage(java.lang.Thread.currentThread().getName())' });"
+            });
+
+            worker.onerror = (e) => {
+                console.log("NESTED WORKER TEST ERROR: " + e.message + " | " + e.stackTrace);
+                done("nested worker error: " + e.message);
+            };
+            worker.onmessage = (msg) => {
+                var childThreadName = msg.data;
+                // worker threads are named "W<id>: <script>"
+                expect(childThreadName.indexOf("W")).toBe(0);
+                worker.terminate();
+
+                setTimeout(() => {
+                    var threads = java.lang.Thread.getAllStackTraces().keySet().toArray();
+                    var childAlive = false;
+                    for (var i = 0; i < threads.length; i++) {
+                        if (threads[i].getName() === childThreadName) {
+                            childAlive = true;
+                        }
+                    }
+                    expect(childAlive).toBe(false);
+                    done();
+                }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
+            };
+        });
+
+        it("Should terminate a worker stuck in a busy loop", (done) => {
+            var worker = new Worker("./EvalWorker.js");
+
+            worker.onmessage = (msg) => {
+                expect(msg.data).toBe("looping");
+                worker.terminate();
+
+                // the runtime should remain fully functional afterwards
+                var secondWorker = new Worker("./EvalWorker.js");
+                secondWorker.postMessage({ eval: "postMessage('pong');" });
+                secondWorker.onmessage = (innerMsg) => {
+                    expect(innerMsg.data).toBe("pong");
+                    secondWorker.terminate();
+                    done();
+                };
+            };
+
+            worker.postMessage({ eval: "postMessage('looping'); while (true) {}" });
+        });
+    } // platform is Android
 
     if (global.NSObject) { // platform is iOS
         it("Worker has active CFRunLoop that can execute NSTimer events", (done) => {
