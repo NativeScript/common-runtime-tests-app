@@ -12,6 +12,20 @@
 
 var globalObject = typeof globalThis !== "undefined" ? globalThis : global;
 
+// The suite gates itself on the API being implemented so it can run from
+// runAllTests() on every runtime: one that has not shipped the Performance API
+// reports a single pending spec instead of failures. Runtimes that do ship it
+// must keep an unguarded canary in their own test suite asserting the globals
+// exist, so this gate cannot silently hide a regression there.
+if (typeof globalObject.performance === "undefined" || typeof globalObject.PerformanceObserver !== "function") {
+    describe("Performance API", function () {
+        it("is skipped: this runtime does not implement the Performance API", function () {
+            pending();
+        });
+    });
+    return;
+}
+
 var PERFORMANCE_CONSTRUCTORS = [
     "Performance",
     "PerformanceEntry",

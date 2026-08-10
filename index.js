@@ -28,4 +28,5 @@ exports.runAllTests = function() {
     exports.runWeakRefTests();
     exports.runRuntimeTests();
     exports.runWorkerTests();
+    exports.runPerformanceTests();
 }
