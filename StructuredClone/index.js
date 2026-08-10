@@ -443,6 +443,41 @@ describe(module.id, function () {
             expect(buffer.byteLength).toBe(0);
         });
 
+        it("reads the transfer iterator's next method only once", function () {
+            var buffer = new ArrayBuffer(4);
+            var nextReads = 0;
+            var exhausted = false;
+
+            function next() {
+                if (exhausted) {
+                    return { done: true, value: undefined };
+                }
+                exhausted = true;
+                return { done: false, value: buffer };
+            }
+
+            var iterator = {};
+            Object.defineProperty(iterator, "next", {
+                get: function () {
+                    nextReads++;
+                    if (nextReads > 1) {
+                        throw new Error("next must be captured once, not re-read per step");
+                    }
+                    return next;
+                }
+            });
+
+            var iterable = {};
+            iterable[Symbol.iterator] = function () {
+                return iterator;
+            };
+
+            var cloned = structuredClone(buffer, { transfer: iterable });
+            expect(nextReads).toBe(1);
+            expect(cloned.byteLength).toBe(4);
+            expect(buffer.byteLength).toBe(0);
+        });
+
         it("accepts an absent, undefined or empty transfer list", function () {
             var buffer = new ArrayBuffer(4);
             expect(structuredClone(buffer, {}).byteLength).toBe(4);
