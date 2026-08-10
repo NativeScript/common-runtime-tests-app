@@ -18,6 +18,10 @@ exports.runWorkerTests = function() {
     require("./Workers");
 }
 
+exports.runPerformanceTests = function() {
+    require("./Performance");
+}
+
 exports.runAllTests = function() {
     exports.runImportTests();
     exports.runRequireTests();
