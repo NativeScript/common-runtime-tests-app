@@ -8,6 +8,9 @@
 // The V8-based iOS runtime (@nativescript/ios); the legacy JSC runtime exposes TNSRuntime
 var isV8iOS = !!global.NSObject && !global.TNSRuntime;
 
+// Not every runtime exposes shared memory; the sharing specs feature-detect.
+var hasSharedArrayBuffer = typeof SharedArrayBuffer === "function";
+
 function expectThrowsNamed(name, fn) {
     var thrown = null;
     try {
@@ -289,6 +292,50 @@ describe(module.id, function () {
             expect(cloned.a.buffer).toBe(cloned.b.buffer);
             cloned.a[0] = 5;
             expect(cloned.b[0]).toBe(5);
+        });
+    });
+
+    describe("SharedArrayBuffer", function () {
+        if (!hasSharedArrayBuffer) {
+            it("is not exposed by this runtime", function () {
+                expect(typeof SharedArrayBuffer).toBe("undefined");
+            });
+            return;
+        }
+
+        it("shares its memory with the clone instead of copying it", function () {
+            var shared = new SharedArrayBuffer(8);
+            var source = new Uint8Array(shared);
+            source[0] = 1;
+
+            var cloned = structuredClone(shared);
+            expect(cloned instanceof SharedArrayBuffer).toBe(true);
+            expect(cloned).not.toBe(shared);
+            expect(cloned.byteLength).toBe(8);
+
+            // Written through the clone, read through the original.
+            new Uint8Array(cloned)[3] = 42;
+            expect(source[3]).toBe(42);
+
+            // And the other way around.
+            source[7] = 9;
+            expect(new Uint8Array(cloned)[7]).toBe(9);
+        });
+
+        it("keeps one shared buffer shared across two references", function () {
+            var shared = new SharedArrayBuffer(4);
+            var cloned = structuredClone({ a: shared, b: shared });
+
+            expect(cloned.a).toBe(cloned.b);
+            new Uint8Array(cloned.a)[0] = 7;
+            expect(new Uint8Array(shared)[0]).toBe(7);
+        });
+
+        it("is not transferable", function () {
+            var shared = new SharedArrayBuffer(4);
+            expectThrowsNamed("DataCloneError", function () {
+                structuredClone(shared, { transfer: [shared] });
+            });
         });
     });
 
@@ -576,5 +623,102 @@ describe(module.id, function () {
             };
             worker.postMessage({ eval: "postMessage({ t: typeof structuredClone })" });
         });
+
+        // postMessage runs on the same serialization core as structuredClone,
+        // so the transfer rules below are the same ones asserted above. Its
+        // transfer list is a plain array only: there is no JS wrapper around
+        // postMessage to do the WebIDL iterable conversion.
+        it("transfers an ArrayBuffer to a worker and detaches the source", function (done) {
+            var worker = new Worker("../Workers/EvalWorker.js");
+            var buffer = new ArrayBuffer(4);
+            new Uint8Array(buffer).set([5, 6, 7, 8]);
+
+            worker.onmessage = function (msg) {
+                expect(msg.data.len).toBe(4);
+                expect(msg.data.first).toBe(5);
+                expect(msg.data.last).toBe(8);
+                worker.terminate();
+                done();
+            };
+
+            worker.postMessage({
+                value: buffer,
+                eval: "postMessage({ len: value.byteLength, first: new Uint8Array(value)[0], last: new Uint8Array(value)[3] })"
+            }, [buffer]);
+
+            expect(buffer.byteLength).toBe(0);
+        });
+
+        it("copies the buffer when it is not in the transfer list", function (done) {
+            var worker = new Worker("../Workers/EvalWorker.js");
+            var buffer = new ArrayBuffer(4);
+            new Uint8Array(buffer).set([1, 2, 3, 4]);
+
+            worker.onmessage = function (msg) {
+                expect(msg.data.len).toBe(4);
+                worker.terminate();
+                done();
+            };
+
+            worker.postMessage({
+                value: buffer,
+                eval: "postMessage({ len: value.byteLength })"
+            });
+
+            expect(buffer.byteLength).toBe(4);
+        });
+
+        it("throws TypeError for a transfer list that is not an array", function () {
+            var worker = new Worker("../Workers/EvalWorker.js");
+            expectThrowsTypeError(function () {
+                worker.postMessage({ value: 1 }, 5);
+            });
+            expectThrowsTypeError(function () {
+                worker.postMessage({ value: 1 }, "buffer");
+            });
+            worker.terminate();
+        });
+
+        it("throws DataCloneError for bad transfer list entries", function () {
+            var worker = new Worker("../Workers/EvalWorker.js");
+
+            var duplicated = new ArrayBuffer(4);
+            expectThrowsNamed("DataCloneError", function () {
+                worker.postMessage({ value: duplicated }, [duplicated, duplicated]);
+            });
+            expect(duplicated.byteLength).toBe(4);
+
+            expectThrowsNamed("DataCloneError", function () {
+                worker.postMessage({ value: 1 }, [{}]);
+            });
+
+            var detached = new ArrayBuffer(4);
+            structuredClone(detached, { transfer: [detached] });
+            expectThrowsNamed("DataCloneError", function () {
+                worker.postMessage({ value: 1 }, [detached]);
+            });
+
+            worker.terminate();
+        });
+
+        if (isV8iOS) {
+            // Deliberate asymmetry with structuredClone, which rejects host
+            // objects: posting a native object has always delivered an empty
+            // object rather than throwing, and Workers/index.js pins that it
+            // does not throw. Only the runtime's HostObjectPolicy encodes it.
+            it("delivers a posted native object as an empty object", function (done) {
+                var worker = new Worker("../Workers/EvalWorker.js");
+                worker.onmessage = function (msg) {
+                    expect(msg.data.type).toBe("object");
+                    expect(msg.data.keys).toBe(0);
+                    worker.terminate();
+                    done();
+                };
+                worker.postMessage({
+                    value: NSObject.alloc().init(),
+                    eval: "postMessage({ type: typeof value, keys: Object.keys(value).length })"
+                });
+            });
+        }
     });
 });
