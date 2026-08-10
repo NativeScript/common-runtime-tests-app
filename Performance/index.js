@@ -547,6 +547,23 @@ describe("PerformanceObserver", function () {
         expectThrowsTypeError(function () { observer.observe(); });
     });
 
+    it("Should convert entryTypes as a WebIDL sequence", function (done) {
+        // Non-iterables (and string primitives, which fail the object check)
+        // must throw rather than silently observe nothing.
+        var observer = observing(function () {});
+        expectThrowsTypeError(function () { observer.observe({ entryTypes: 5 }); });
+        expectThrowsTypeError(function () { observer.observe({ entryTypes: "mark" }); });
+        expectThrowsTypeError(function () { observer.observe({ entryTypes: { length: 1, 0: "mark" } }); });
+
+        // Any iterable converts, not just arrays.
+        var fromSet = observing(function (list) {
+            expect(entryNames(list.getEntries())).toEqual(["set-observed"]);
+            done();
+        });
+        fromSet.observe({ entryTypes: new Set(["mark"]) });
+        performance.mark("set-observed");
+    });
+
     it("Should refuse to switch an observer between the entryTypes and type forms", function () {
         var byList = observing(function () {});
         byList.observe({ entryTypes: ["mark"] });
