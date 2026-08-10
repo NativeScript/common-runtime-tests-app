@@ -1,9 +1,26 @@
-// Suite for the WHATWG structuredClone() global. Opt-in per runtime
-// (runStructuredCloneTests), because not every runtime exposes the API yet.
+// Suite for the WHATWG structuredClone() global.
+//
+// The suite gates itself on the API being present, so it can sit in
+// runAllTests() on every runtime and report a visible pending spec where
+// structuredClone does not exist yet, rather than being wired in per-runtime.
+//
+// A runtime that DOES implement structuredClone must keep an unguarded canary
+// in its own suite asserting the global is there (on iOS:
+// TestRunner/app/tests/RuntimeImplementedAPIs.js). Without one, this gate would
+// quietly turn a regression that removed the API into a skipped suite.
 //
 // Clone failures are asserted by `.name === "DataCloneError"` rather than by
 // `instanceof DOMException`: runtimes without a DOMException throw a plain
 // Error carrying that name.
+
+if (typeof global.structuredClone !== "function") {
+    describe("structuredClone", function () {
+        it("is skipped: this runtime does not implement structuredClone", function () {
+            pending();
+        });
+    });
+    return;
+}
 
 // The V8-based iOS runtime (@nativescript/ios); the legacy JSC runtime exposes TNSRuntime
 var isV8iOS = !!global.NSObject && !global.TNSRuntime;

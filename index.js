@@ -18,8 +18,6 @@ exports.runWorkerTests = function() {
     require("./Workers");
 }
 
-// Deliberately outside runAllTests(): structuredClone is not available on every
-// runtime yet, so each one opts in once it ships the global.
 exports.runStructuredCloneTests = function() {
     require("./StructuredClone");
 }
@@ -30,4 +28,5 @@ exports.runAllTests = function() {
     exports.runWeakRefTests();
     exports.runRuntimeTests();
     exports.runWorkerTests();
+    exports.runStructuredCloneTests();
 }
