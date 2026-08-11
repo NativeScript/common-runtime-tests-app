@@ -3,11 +3,13 @@
  * (mark/measure), the Performance Timeline queries and PerformanceObserver,
  * plus the same surface inside Worker isolates.
  *
- * Two deliberate deviations from the specifications are asserted here:
- *   - `detail` is retained by reference instead of being structured-cloned, so
- *     a caller reads back the very object it passed in.
+ * Deliberate deviations from the specifications asserted here:
  *   - Observer callbacks are only guaranteed to run asynchronously; nothing
  *     pins them to a microtask or a macrotask turn.
+ *   - `detail` is structured-cloned per spec where the runtime ships
+ *     structuredClone, and degrades to by-reference where it does not (a
+ *     runtime may implement the Performance API first); the detail specs
+ *     assert whichever contract applies.
  */
 
 var globalObject = typeof globalThis !== "undefined" ? globalThis : global;
@@ -25,6 +27,8 @@ if (typeof globalObject.performance === "undefined" || typeof globalObject.Perfo
     });
     return;
 }
+
+var HAS_STRUCTURED_CLONE = typeof globalObject.structuredClone === "function";
 
 var PERFORMANCE_CONSTRUCTORS = [
     "Performance",
@@ -271,15 +275,34 @@ describe("Performance mark", function () {
         expect(performance.getEntriesByName("m2")[0].startTime).toBe(12.5);
     });
 
-    it("Should default detail to null and keep a supplied detail by reference", function () {
+    it("Should default detail to null and snapshot a supplied detail", function () {
         expect(performance.mark("m3").detail).toBeNull();
 
-        var detail = { nested: {} };
+        var detail = { nested: { value: 1 } };
         var mark = performance.mark("m4", { detail: detail });
-        expect(mark.detail).toBe(detail);
-        expect(mark.detail.nested).toBe(detail.nested);
-        expect(performance.getEntriesByName("m4")[0].detail).toBe(detail);
+        expect(mark.detail).toEqual(detail);
+        expect(performance.getEntriesByName("m4")[0].detail).toBe(mark.detail);
+        if (HAS_STRUCTURED_CLONE) {
+            // Cloned once at creation: a distinct snapshot, immune to later
+            // mutation of the caller's object.
+            expect(mark.detail).not.toBe(detail);
+            detail.nested.value = 2;
+            expect(mark.detail.nested.value).toBe(1);
+        } else {
+            // Portability fallback for a runtime that ships the Performance
+            // API before structuredClone: detail degrades to by-reference.
+            expect(mark.detail).toBe(detail);
+        }
     });
+
+    if (HAS_STRUCTURED_CLONE) {
+        it("Should reject an uncloneable detail with a DataCloneError named error", function () {
+            expectThrowsNamed(function () {
+                performance.mark("bad-detail", { detail: { fn: function () {} } });
+            }, "DataCloneError");
+            expect(performance.getEntries().length).toBe(0);
+        });
+    }
 
     it("Should reject a negative or non finite startTime", function () {
         var invalid = [-1, -0.5, NaN, Infinity, -Infinity];
@@ -300,7 +323,7 @@ describe("Performance mark", function () {
         var detail = { standalone: true };
         var mark = new PerformanceMark("standalone", { startTime: 7, detail: detail });
         expect(mark.startTime).toBe(7);
-        expect(mark.detail).toBe(detail);
+        expect(mark.detail).toEqual(detail);
         expect(performance.getEntriesByName("standalone")).toEqual([]);
         expect(performance.getEntries()).toEqual([]);
     });
@@ -313,7 +336,7 @@ describe("Performance mark", function () {
         expect(json.entryType).toBe("mark");
         expect(json.startTime).toBe(3);
         expect(json.duration).toBe(0);
-        expect(json.detail).toBe(detail);
+        expect(json.detail).toBe(mark.detail);
     });
 });
 
@@ -397,12 +420,19 @@ describe("Performance measure", function () {
         expect(measure.duration).toBe(30);
     });
 
-    it("Should default detail to null and keep a supplied detail by reference", function () {
-        var detail = { nested: {} };
+    it("Should default detail to null and snapshot a supplied detail", function () {
+        var detail = { nested: { value: 1 } };
         var measure = performance.measure("detailed", { start: 0, end: 1, detail: detail });
-        expect(measure.detail).toBe(detail);
-        expect(performance.getEntriesByName("detailed")[0].detail).toBe(detail);
+        expect(measure.detail).toEqual(detail);
+        expect(performance.getEntriesByName("detailed")[0].detail).toBe(measure.detail);
         expect(performance.measure("plain", { start: 0, end: 1 }).detail).toBeNull();
+        if (HAS_STRUCTURED_CLONE) {
+            expect(measure.detail).not.toBe(detail);
+            detail.nested.value = 2;
+            expect(measure.detail.nested.value).toBe(1);
+        } else {
+            expect(measure.detail).toBe(detail);
+        }
     });
 
     it("Should treat an options bag without members like no options at all", function () {
