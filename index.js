@@ -22,6 +22,10 @@ exports.runPerformanceTests = function() {
     require("./Performance");
 }
 
+exports.runStructuredCloneTests = function() {
+    require("./StructuredClone");
+}
+
 exports.runAllTests = function() {
     exports.runImportTests();
     exports.runRequireTests();
@@ -29,4 +33,5 @@ exports.runAllTests = function() {
     exports.runRuntimeTests();
     exports.runWorkerTests();
     exports.runPerformanceTests();
+    exports.runStructuredCloneTests();
 }
