@@ -26,6 +26,10 @@ exports.runStructuredCloneTests = function() {
     require("./StructuredClone");
 }
 
+exports.runTextEncodingTests = function() {
+    require("./TextEncoding");
+}
+
 exports.runAllTests = function() {
     exports.runImportTests();
     exports.runRequireTests();
@@ -34,4 +38,5 @@ exports.runAllTests = function() {
     exports.runWorkerTests();
     exports.runPerformanceTests();
     exports.runStructuredCloneTests();
+    exports.runTextEncodingTests();
 }
