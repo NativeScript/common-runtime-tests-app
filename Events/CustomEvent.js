@@ -58,6 +58,17 @@ describe("CustomEvent", function () {
         expect(new CustomEvent("a", { detail: null }).detail).toBe(null);
     });
 
+    it("keeps detail read-only", function () {
+        var payload = { answer: 42 };
+        var e = new CustomEvent("a", { detail: payload });
+        try {
+            e.detail = { replaced: true };
+        } catch (ignored) {
+            // A strict-mode readonly assignment throws; sloppy mode ignores it.
+        }
+        expect(e.detail).toBe(payload);
+    });
+
     it("honors the Event init flags", function () {
         var e = new CustomEvent("a", { bubbles: true, cancelable: true, detail: 1 });
         expect(e.bubbles).toBe(true);
