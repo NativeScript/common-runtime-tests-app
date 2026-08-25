@@ -567,6 +567,13 @@ describeEncoding("utf-16le", "TextDecoder utf-16le", function () {
         expect(decoder.decode(bytes([0x00, 0xD8, 0x41, 0x00]))).toBe("\uFFFDA");
     });
 
+    it("emits one U+FFFD when a pending lead surrogate meets a trailing odd byte", function () {
+        // The decoder's end-of-queue step clears the lead byte and the lead
+        // surrogate together, as a single error, never two.
+        expect(decoder.decode(bytes([0x00, 0xD8, 0x41]))).toBe("\uFFFD");
+        expect(decoder.decode(bytes([0x41, 0x00, 0x00, 0xD8, 0x41]))).toBe("A\uFFFD");
+    });
+
     it("throws TypeError for an unpaired surrogate when fatal", function () {
         var strict = new TextDecoder("utf-16le", { fatal: true });
 
