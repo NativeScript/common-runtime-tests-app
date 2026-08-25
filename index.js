@@ -30,6 +30,14 @@ exports.runTextEncodingTests = function() {
     require("./TextEncoding");
 }
 
+exports.runDOMExceptionTests = function() {
+    require("./DOMException");
+}
+
+exports.runEventsTests = function() {
+    require("./Events");
+}
+
 exports.runAllTests = function() {
     exports.runImportTests();
     exports.runRequireTests();
@@ -39,4 +47,6 @@ exports.runAllTests = function() {
     exports.runPerformanceTests();
     exports.runStructuredCloneTests();
     exports.runTextEncodingTests();
+    exports.runDOMExceptionTests();
+    exports.runEventsTests();
 }
