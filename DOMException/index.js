@@ -189,3 +189,45 @@ describe("DOMException integration", function () {
         expect(thrown.code).toBe(DOMException.DATA_CLONE_ERR);
     });
 });
+
+// Web IDL marks DOMException [Serializable]; where structuredClone exists it
+// must carry instances rather than degrading them to plain objects.
+describe("DOMException serialization", function () {
+    var hasStructuredClone = typeof globalObject.structuredClone === "function";
+    var maybeIt = hasStructuredClone ? it : xit;
+
+    maybeIt("round-trips through structuredClone", function () {
+        var original = new DOMException("boom", "NotFoundError");
+        var clone = globalObject.structuredClone(original);
+        expect(clone).not.toBe(original);
+        expect(clone instanceof DOMException).toBe(true);
+        expect(clone instanceof Error).toBe(true);
+        expect(clone.name).toBe("NotFoundError");
+        expect(clone.message).toBe("boom");
+        expect(clone.code).toBe(DOMException.NOT_FOUND_ERR);
+    });
+
+    maybeIt("round-trips nested in a graph", function () {
+        var e = new DOMException("deep", "AbortError");
+        var clone = globalObject.structuredClone({ list: [1, e], map: { e: e } });
+        expect(clone.list[1] instanceof DOMException).toBe(true);
+        expect(clone.list[1].name).toBe("AbortError");
+        expect(clone.map.e.message).toBe("deep");
+    });
+
+    maybeIt("preserves object identity within a graph", function () {
+        var e = new DOMException("once", "TimeoutError");
+        var clone = globalObject.structuredClone({ a: e, b: e });
+        expect(clone.a).toBe(clone.b);
+        expect(clone.a).not.toBe(e);
+    });
+
+    maybeIt("carries the stack where this runtime's errors have one", function () {
+        if (typeof new Error().stack !== "string") {
+            pending();
+            return;
+        }
+        var original = new DOMException("boom", "AbortError");
+        expect(globalObject.structuredClone(original).stack).toBe(original.stack);
+    });
+});

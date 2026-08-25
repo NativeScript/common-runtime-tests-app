@@ -282,6 +282,42 @@ describe("TNS Workers", () => {
         worker.terminate();
     });
 
+    // DOMException is [Serializable] in Web IDL: where the runtime has it,
+    // instances must survive postMessage in both directions rather than
+    // degrading to plain objects.
+    var hasDOMException = typeof global.DOMException === "function";
+
+    (isStructuredClone && hasDOMException ? it : xit)("Should round-trip a DOMException to the worker (structured clone)", (done) => {
+        var worker = new Worker("./EvalWorker.js");
+
+        worker.postMessage({
+            value: new DOMException("boom", "AbortError"),
+            eval: "postMessage(value instanceof DOMException ? value.name + '|' + value.message + '|' + value.code : 'not a DOMException')"
+        });
+
+        worker.onmessage = (msg) => {
+            expect(msg.data).toBe("AbortError|boom|20");
+            worker.terminate();
+            done();
+        };
+    });
+
+    (isStructuredClone && hasDOMException ? it : xit)("Should round-trip a DOMException from the worker (structured clone)", (done) => {
+        var worker = new Worker("./EvalWorker.js");
+
+        worker.postMessage({
+            eval: "postMessage(new DOMException('from worker', 'TimeoutError'))"
+        });
+
+        worker.onmessage = (msg) => {
+            expect(msg.data instanceof DOMException).toBe(true);
+            expect(msg.data.name).toBe("TimeoutError");
+            expect(msg.data.message).toBe("from worker");
+            worker.terminate();
+            done();
+        };
+    });
+
     (isStructuredClone ? it : xit)("Should round-trip Date, RegExp, Map, Set, TypedArray and undefined (structured clone)", (done) => {
         var worker = new Worker("./EvalWorker.js");
 
