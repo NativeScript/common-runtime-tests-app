@@ -1,6 +1,8 @@
 // Suite for Worker and the worker global scope as EventTargets (HTML Standard
 // §10.2.1 and §10.2.6): both deliver MessageEvents through a listener list
-// rather than calling an `onmessage` property directly.
+// rather than calling an `onmessage` property directly, and a worker error the
+// worker scope did not handle reaches the parent as an ErrorEvent on the
+// Worker object.
 //
 // The suite gates itself on Worker and MessageEvent being present, so it can
 // sit in runAllTests() on every runtime and report a visible pending spec
@@ -12,14 +14,15 @@
 // TestRunner/app/tests/RuntimeImplementedAPIs.js). Without one, this gate
 // would quietly turn a regression that removed the API into a skipped suite.
 //
-// Two specs at the bottom pin behaviors that are NOT what a browser does. They
-// are documented deviations of this runtime (docs/worker-threads.md on iOS),
-// and they are asserted here so that changing either is a deliberate act.
+// The spec at the bottom pins a behavior that is NOT what a browser does. It is
+// a documented deviation of this runtime (docs/worker-threads.md on iOS), and
+// it is asserted here so that changing it is a deliberate act.
 
 var globalObject = typeof globalThis !== "undefined" ? globalThis : global;
 
 if (typeof globalObject.Worker === "undefined" ||
     typeof globalObject.MessageEvent === "undefined" ||
+    typeof globalObject.ErrorEvent === "undefined" ||
     typeof globalObject.MessageChannel === "undefined") {
     describe("Worker events", function () {
         it("is skipped: this runtime does not implement worker message events", function () {
@@ -32,9 +35,7 @@ if (typeof globalObject.Worker === "undefined" ||
 var MessageEvent = globalObject.MessageEvent;
 var MessageChannel = globalObject.MessageChannel;
 var MessagePort = globalObject.MessagePort;
-
-// Long enough that an event which was going to fire would have.
-var SETTLE = globalObject.NSObject ? 500 : 2000;
+var ErrorEvent = globalObject.ErrorEvent;
 
 describe(module.id, function () {
     var originalTimeout;
@@ -199,33 +200,80 @@ describe(module.id, function () {
         });
     });
 
-    describe("documented deviations", function () {
-        // The worker error path reads the `onerror` property off the worker
-        // object and calls it with a plain error record; no event is ever
-        // dispatched, so an addEventListener("error") registration on a Worker
-        // never runs. Pinned so that making it fire is a deliberate change.
-        // The helper declines the error in its own scope handler, which is what
-        // hands it to the parent in the first place.
-        it("leaves addEventListener('error') on a Worker inert while onerror fires", function (done) {
+    describe("worker errors on the parent", function () {
+        it("delivers a real ErrorEvent to onerror and addEventListener in registration order", function (done) {
             var worker = new Worker("./ThrowingWorker");
-            var listenerCalls = 0;
-            var handlerCalls = 0;
+            var order = [];
+            var firstSeen = null;
 
-            worker.addEventListener("error", function () { listenerCalls++; });
-            worker.onerror = function (error) {
-                handlerCalls++;
-                expect(error).toBeTruthy();
-            };
-            worker.postMessage("go");
-
-            setTimeout(function () {
-                expect(handlerCalls).toBe(1);
-                expect(listenerCalls).toBe(0);
+            worker.addEventListener("error", function (event) {
+                order.push("listener1");
+                firstSeen = event;
+            });
+            worker.onerror = function () { order.push("handler"); };
+            worker.addEventListener("error", function (event) {
+                order.push("listener2");
+                expect(order).toEqual(["listener1", "handler", "listener2"]);
+                expect(event).toBe(firstSeen);
+                expect(event instanceof ErrorEvent).toBe(true);
+                expect(event instanceof Event).toBe(true);
+                expect(event.type).toBe("error");
+                expect(event.target).toBe(worker);
+                expect(typeof event.message).toBe("string");
+                expect(event.message.indexOf("worker helper threw on purpose")).toBeGreaterThan(-1);
+                // Only primitives cross the isolate boundary, so the event
+                // never carries the worker's error object.
+                expect(event.error).toBe(null);
+                // A handler that returns nothing leaves the error unhandled.
+                expect(event.defaultPrevented).toBe(false);
                 worker.terminate();
                 done();
-            }, SETTLE);
+            });
+
+            worker.postMessage("go");
         });
 
+        // The worker helper installs no scope `onerror` at all: an error the
+        // worker scope never handles still has to reach the parent.
+        it("delivers an error from a worker whose scope never handles it", function (done) {
+            var worker = new Worker("./ThrowingWorker");
+            worker.onerror = function (event) {
+                expect(event.type).toBe("error");
+                expect(typeof event.filename).toBe("string");
+                expect(typeof event.lineno).toBe("number");
+                worker.terminate();
+                done();
+            };
+            worker.postMessage("go");
+        });
+
+        it("marks the error handled when a listener calls preventDefault()", function (done) {
+            var worker = new Worker("./ThrowingWorker");
+            worker.addEventListener("error", function (event) { event.preventDefault(); });
+            worker.addEventListener("error", function (event) {
+                expect(event.defaultPrevented).toBe(true);
+                worker.terminate();
+                done();
+            });
+            worker.postMessage("go");
+        });
+
+        // HTML §8.1.7.3: `onerror` is the one handler attribute whose return
+        // value is observable — a truthy return cancels the event, which is how
+        // this runtime has always spelled "the error was handled".
+        it("marks the error handled when onerror returns truthy", function (done) {
+            var worker = new Worker("./ThrowingWorker");
+            worker.onerror = function () { return true; };
+            worker.addEventListener("error", function (event) {
+                expect(event.defaultPrevented).toBe(true);
+                worker.terminate();
+                done();
+            });
+            worker.postMessage("go");
+        });
+    });
+
+    describe("documented deviations", function () {
         // A browser dispatches scope messages at the global object itself. This
         // runtime dispatches at the internal EventTarget backing the global
         // listener methods, so app code cannot intercept delivery by replacing

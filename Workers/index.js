@@ -407,6 +407,8 @@ describe("TNS Workers", () => {
         }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
+    // A scope handler that throws replaces the error it was offered: the parent
+    // sees the handler's own error, once, not both.
     it("Throw error in onerror", (done) => {
         var worker = new Worker("./EvalWorker.js");
 
@@ -430,7 +432,7 @@ describe("TNS Workers", () => {
         };
 
         setTimeout(() => {
-            expect(onerrorCounter).toBe(2);
+            expect(onerrorCounter).toBe(1);
             expect(onmessageCounter).toBe(1);
             worker.terminate();
             done();

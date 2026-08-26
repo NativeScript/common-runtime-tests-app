@@ -244,6 +244,32 @@ describe(module.id, function () {
             }, TICK);
         });
 
+        // The listener count the port's start/stop accounting reads has to come
+        // back to zero after a null first write, exactly as it does when the
+        // handler was first set to a function. A count that only ever grows
+        // leaves the port started forever, and a message posted while nothing
+        // is listening is then dispatched into the inert slot and lost.
+        it("stops a port whose handler was claimed by a null first write and then cleared", function (done) {
+            var channel = new MessageChannel();
+            var got = [];
+            channel.port2.onmessage = null;
+            channel.port1.postMessage("dropped");
+            setTimeout(function () {
+                channel.port2.onmessage = function (event) { got.push(event.data); };
+                channel.port2.onmessage = null;
+                channel.port1.postMessage("queued");
+                setTimeout(function () {
+                    expect(got).toEqual([]);
+                    channel.port2.onmessage = function (event) { got.push(event.data); };
+                    setTimeout(function () {
+                        expect(got).toEqual(["queued"]);
+                        closeAll(channel.port1, channel.port2);
+                        done();
+                    }, TICK);
+                }, SETTLE);
+            }, SETTLE);
+        });
+
         it("start() enables a port that has no listener yet", function (done) {
             var channel = new MessageChannel();
             channel.port1.postMessage("first");
