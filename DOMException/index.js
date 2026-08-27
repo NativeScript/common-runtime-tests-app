@@ -194,7 +194,18 @@ describe("DOMException integration", function () {
 // must carry instances rather than degrading them to plain objects.
 describe("DOMException serialization", function () {
     var hasStructuredClone = typeof globalObject.structuredClone === "function";
-    var maybeIt = hasStructuredClone ? it : xit;
+    // Probed, not assumed: a runtime can have structuredClone without the
+    // [Serializable] implementation, in which case a DOMException degrades to
+    // a plain Error clone and these specs must skip rather than fail.
+    var canSerialize = hasStructuredClone && (function () {
+        try {
+            return globalObject.structuredClone(
+                new DOMException("probe", "AbortError")) instanceof DOMException;
+        } catch (e) {
+            return false;
+        }
+    })();
+    var maybeIt = canSerialize ? it : xit;
 
     maybeIt("round-trips through structuredClone", function () {
         var original = new DOMException("boom", "NotFoundError");
