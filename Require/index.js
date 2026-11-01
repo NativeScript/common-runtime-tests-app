@@ -293,8 +293,12 @@ describe("TNS require", function () {
         require("./CaseSensitive");
         // WARNING: The following test is runtime specific - the V8-based runtimes
         // (android and v8-ios) load both the file and the folder module here,
-        // the legacy JSC iOS runtime only the file
-        var expected = global.TNSRuntime ? 'file' : 'filefolder';
+        // the legacy JSC iOS runtime only the file. On a case-insensitive file
+        // system (Mac Catalyst on a default macOS volume) './mymodule' finds
+        // MyModule.js before the folder, as Node does on macOS.
+        var caseInsensitive = !!global.NSFileManager &&
+            NSFileManager.defaultManager.fileExistsAtPath(__dirname + "/CaseSensitive/mymodule.js");
+        var expected = global.TNSRuntime ? 'file' : (caseInsensitive ? 'filefile' : 'filefolder');
         expect(TNSGetOutput()).toBe(expected);
     });
 
