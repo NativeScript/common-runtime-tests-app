@@ -226,6 +226,9 @@ describe(module.id, function () {
                 expect(event.error).toBe(null);
                 // A handler that returns nothing leaves the error unhandled.
                 expect(event.defaultPrevented).toBe(false);
+                // Left unhandled, the error is re-reported on the main global
+                // scope, where Jasmine's global error handler fails the spec.
+                event.preventDefault();
                 worker.terminate();
                 done();
             });
@@ -243,6 +246,7 @@ describe(module.id, function () {
                 expect(typeof event.lineno).toBe("number");
                 worker.terminate();
                 done();
+                return true;
             };
             worker.postMessage("go");
         });

@@ -75,23 +75,44 @@ function entryNames(entries) {
 }
 
 // A callback that throws is routed to reportError, which surfaces as a global
-// `error` event. preventDefault() keeps it from reaching the runner's uncaught
-// handler for the one test that exercises that path.
-function suppressGlobalErrors() {
-    if (typeof globalObject.addEventListener !== "function") {
-        return function () {};
-    }
+// `error` event. preventDefault() keeps it from reaching the runtime's uncaught
+// handler; where Jasmine routes global errors to the running spec, its global
+// error spy keeps the event from failing the spec too.
+// body(finish) must call finish only after the expected error was dispatched.
+function withGlobalErrorsSuppressed(done, body) {
+    var canListen = typeof globalObject.addEventListener === "function";
     var listener = function (event) {
         if (event && typeof event.preventDefault === "function") {
             event.preventDefault();
         }
     };
-    globalObject.addEventListener("error", listener);
-    return function () {
-        if (typeof globalObject.removeEventListener === "function") {
+    if (canListen) {
+        globalObject.addEventListener("error", listener);
+    }
+    function cleanup() {
+        if (canListen && typeof globalObject.removeEventListener === "function") {
             globalObject.removeEventListener("error", listener);
         }
-    };
+    }
+
+    if (typeof jasmine.spyOnGlobalErrorsAsync !== "function") {
+        body(function () {
+            cleanup();
+            done();
+        });
+        return;
+    }
+    jasmine.spyOnGlobalErrorsAsync(function () {
+        return new Promise(function (resolve) {
+            body(resolve);
+        });
+    }).then(function () {
+        cleanup();
+        done();
+    }, function (error) {
+        cleanup();
+        done.fail(error);
+    });
 }
 
 describe("Performance globals", function () {
@@ -746,23 +767,23 @@ describe("PerformanceObserver", function () {
     });
 
     it("Should run every observer in registration order even when one throws", function (done) {
-        var order = [];
-        var restoreErrorHandling = suppressGlobalErrors();
+        withGlobalErrorsSuppressed(done, function (finish) {
+            var order = [];
 
-        observing(function () { order.push("first"); }).observe({ entryTypes: ["mark"] });
-        observing(function () {
-            order.push("second");
-            throw new Error("observer callback failure");
-        }).observe({ entryTypes: ["mark"] });
-        observing(function () { order.push("third"); }).observe({ entryTypes: ["mark"] });
+            observing(function () { order.push("first"); }).observe({ entryTypes: ["mark"] });
+            observing(function () {
+                order.push("second");
+                throw new Error("observer callback failure");
+            }).observe({ entryTypes: ["mark"] });
+            observing(function () { order.push("third"); }).observe({ entryTypes: ["mark"] });
 
-        performance.mark("fan-out");
+            performance.mark("fan-out");
 
-        setTimeout(function () {
-            expect(order).toEqual(["first", "second", "third"]);
-            restoreErrorHandling();
-            done();
-        }, 500);
+            setTimeout(function () {
+                expect(order).toEqual(["first", "second", "third"]);
+                finish();
+            }, 500);
+        });
     });
 });
 

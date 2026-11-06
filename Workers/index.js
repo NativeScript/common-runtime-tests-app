@@ -26,6 +26,21 @@ describe("TNS Workers", () => {
 
     var gC = global.NSObject ? __collect : gc;
 
+    // A worker error that the parent's handlers leave unhandled is re-reported on
+    // the main global scope, where Jasmine's global error handler fails whichever
+    // spec is running. Specs that make a worker throw on purpose cancel it on the
+    // parent.
+
+    // done(reason) does not fail the spec on every Jasmine version.
+    function failSpec(done, reason) {
+        if (typeof done.fail === "function") {
+            done.fail(reason);
+            return;
+        }
+        expect("spec failed: " + reason).toBeUndefined();
+        done();
+    }
+
     it("Should have self property equal to global", (done) => {
         var worker = new Worker("./EvalWorker");
 
@@ -48,6 +63,7 @@ describe("TNS Workers", () => {
                 expect(e).not.toEqual(null);
                 worker.terminate();
                 done();
+                return true;
             }
         });
     }
@@ -193,6 +209,7 @@ describe("TNS Workers", () => {
 
     it("Should keep the worker alive after error", (done) => {
         var worker = new Worker("./EvalWorker.js");
+        worker.onerror = () => true;
 
         worker.postMessage({ eval: "throw new Error('just an error');" });
         worker.postMessage({ eval: "postMessage('pong');" });
@@ -438,6 +455,7 @@ describe("TNS Workers", () => {
         var onerrorCounter = 0;
         worker.onerror = (err) => {
             onerrorCounter++;
+            return true;
         };
 
         var onmessageCounter = 0;
@@ -515,6 +533,7 @@ describe("TNS Workers", () => {
         var onerrorCalled = false;
         worker.onerror = (err) => {
             onerrorCalled = true;
+            return true;
         };
 
         var lastReceivedMessage;
@@ -535,24 +554,35 @@ describe("TNS Workers", () => {
         var worker = new Worker("./WorkerStressJSTest.js");
         // Worker is not guaranteed to have finished before the check for runtimes leak, so track it manually
         expectedAliveRuntimes++;
+        var finished = false;
+        function finish(failure) {
+            if (finished) {
+                return;
+            }
+            finished = true;
+            worker.terminate();
+            if (failure === undefined) {
+                done();
+            } else {
+                failSpec(done, failure);
+            }
+        }
         // the specific worker will post a message if something isn't right
         worker.onmessage = (msg) => {
             // Worker sends this message when it finishes successfully
             expectedAliveRuntimes--;
             if (msg.data !== "end") {
-                worker.terminate();
-                done("Exception is thrown in the web worker: " + msg);
+                finish("Exception is thrown in the web worker: " + msg);
             }
         }
         worker.onerror = (e) => {
             expectedAliveRuntimes--;
-            worker.terminate();
-            done("Exception is thrown in the web worker: " + e);
+            finish("Exception is thrown in the web worker: " + e.message);
+            return true;
         }
 
         setTimeout(() => {
-            worker.terminate();
-            done();
+            finish();
         }, DEFAULT_TIMEOUT_BEFORE_ASSERT);
     });
 
@@ -627,6 +657,7 @@ describe("TNS Workers", () => {
         worker.onerror = (err) => {
             worker.terminate();
             done();
+            return true;
         };
     });
 
@@ -643,6 +674,7 @@ describe("TNS Workers", () => {
         worker.onerror = (err) => {
             worker.terminate();
             done();
+            return true;
         }
     });
 
@@ -766,7 +798,8 @@ describe("TNS Workers", () => {
 
             worker.onerror = (e) => {
                 console.log("NESTED WORKER TEST ERROR: " + e.message + " | " + e.stackTrace);
-                done("nested worker error: " + e.message);
+                failSpec(done, "nested worker error: " + e.message);
+                return true;
             };
             worker.onmessage = (msg) => {
                 expect(msg.data).toBe("child says: hello from nested worker");
@@ -787,7 +820,8 @@ describe("TNS Workers", () => {
 
             worker.onerror = (e) => {
                 console.log("NESTED WORKER TEST ERROR: " + e.message + " | " + e.stackTrace);
-                done("nested worker error: " + e.message);
+                failSpec(done, "nested worker error: " + e.message);
+                return true;
             };
             worker.onmessage = (msg) => {
                 var childThreadName = msg.data;

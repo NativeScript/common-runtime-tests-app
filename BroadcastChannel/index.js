@@ -53,6 +53,16 @@ function closeOpenChannels() {
     });
 }
 
+// done(reason) does not fail the spec on every Jasmine version.
+function failSpec(done, reason) {
+    if (typeof done.fail === "function") {
+        done.fail(reason);
+        return;
+    }
+    expect("spec failed: " + reason).toBeUndefined();
+    done();
+}
+
 function expectThrowsTypeError(fn) {
     var thrown = null;
     try {
@@ -318,7 +328,11 @@ describe(module.id + " across isolates", function () {
 
         function finish(failure) {
             worker.terminate();
-            done(failure);
+            if (failure === undefined) {
+                done();
+            } else {
+                failSpec(done, failure);
+            }
         }
 
         channel.onmessage = function (event) {
@@ -328,6 +342,7 @@ describe(module.id + " across isolates", function () {
 
         worker.onerror = function (e) {
             finish("worker error: " + (e && e.message));
+            return true;
         };
 
         worker.onmessage = function (msg) {
